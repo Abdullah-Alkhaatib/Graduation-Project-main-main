@@ -1,6 +1,6 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/lib/auth";
-import { useGetTeam, useGetTeamMembers, getGetTeamQueryKey, getGetTeamMembersQueryKey, getGetSupervisorDashboardQueryKey, useSendInvitation, TeamStatus } from "@workspace/api-client-react";
+import { useGetTeam, useGetTeamMembers, getGetTeamQueryKey, getGetTeamMembersQueryKey, getGetSupervisorDashboardQueryKey, getListUsersQueryKey, useSendInvitation, useListUsers, useCoordinatorAssignSupervisor, TeamStatus, ListUsersRole } from "@workspace/api-client-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,7 @@ import { Link } from "wouter";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -54,9 +55,26 @@ export default function TeamDetail() {
   const [hasSentJoinRequest, setHasSentJoinRequest] = useState(false);
   const [transferTargetId, setTransferTargetId] = useState<number | null>(null);
   const [isStoppingSupervision, setIsStoppingSupervision] = useState(false);
+  const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
+  const [selectedSupervisorId, setSelectedSupervisorId] = useState("");
+  const [isAssigningSupervisor, setIsAssigningSupervisor] = useState(false);
+  const [isRemoveSupervisorDialogOpen, setIsRemoveSupervisorDialogOpen] = useState(false);
+
+  const assignSupervisor = useCoordinatorAssignSupervisor();
+  const { data: supervisors, isLoading: isLoadingSupervisors } = useListUsers(
+    { role: ListUsersRole.supervisor },
+    {
+      query: {
+        queryKey: getListUsersQueryKey({ role: ListUsersRole.supervisor }),
+        enabled: user?.role === "coordinator",
+      },
+    }
+  );
 
   const isLeader = members?.some(m => m.userId === user?.id && m.role === 'leader');
   const isCurrentSupervisor = user?.role === "supervisor" && team?.supervisor?.id === user?.id;
+  const canManageSupervisor = user?.role === "coordinator";
+  const hasSupervisor = Boolean(team?.supervisor?.id);
 
   const handleInvite = async () => {
     try {
@@ -191,6 +209,52 @@ export default function TeamDetail() {
     }
   };
 
+  const handleAssignSupervisor = async () => {
+    if (!selectedSupervisorId) {
+      toast({ title: "Error", description: "Please select a supervisor.", variant: "destructive" });
+      return;
+    }
+
+    try {
+      setIsAssigningSupervisor(true);
+      await assignSupervisor.mutateAsync({ data: { teamId, supervisorId: parseInt(selectedSupervisorId, 10) } });
+      setIsAssignDialogOpen(false);
+      setSelectedSupervisorId("");
+      await queryClient.invalidateQueries({ queryKey: getGetTeamQueryKey(teamId) });
+      await queryClient.invalidateQueries({ queryKey: getGetTeamMembersQueryKey(teamId) });
+      await queryClient.invalidateQueries({ queryKey: getGetSupervisorDashboardQueryKey() });
+      toast({ title: "Supervisor assigned", description: "A supervisor has been assigned to this team." });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message || "Failed to assign supervisor.", variant: "destructive" });
+    } finally {
+      setIsAssigningSupervisor(false);
+    }
+  };
+
+  const handleCoordinatorRemoveSupervisor = async () => {
+    try {
+      const response = await fetch(`/api/coordinator/unassign-supervisor`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ teamId }),
+      });
+
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(data?.error || "Failed to remove supervisor.");
+      }
+
+      await queryClient.invalidateQueries({ queryKey: getGetTeamQueryKey(teamId) });
+      await queryClient.invalidateQueries({ queryKey: getGetTeamMembersQueryKey(teamId) });
+      await queryClient.invalidateQueries({ queryKey: getGetSupervisorDashboardQueryKey() });
+      setIsRemoveSupervisorDialogOpen(false);
+      toast({ title: "Supervisor removed", description: "The supervisor has been removed from the team." });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message || "Failed to remove supervisor.", variant: "destructive" });
+    }
+  };
+
   if (isLoadingTeam || isLoadingMembers) {
     return (
       <AppLayout title="Team Details">
@@ -271,22 +335,95 @@ export default function TeamDetail() {
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4">
-                  {/* <div className="rounded-lg border p-3 flex items-center gap-3">
-                    <div className="bg-primary/10 p-2 rounded-md">
-                      <Activity className="h-4 w-4 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Current Phase</p>
-                      <p className="text-sm font-medium capitalize">{team.currentPhase || "None"}</p>
-                    </div>
-                  </div> */}
-                  <div className="rounded-lg border p-3 flex items-center gap-3">
-                    <div className="bg-primary/10 p-2 rounded-md">
-                      <Briefcase className="h-4 w-4 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Supervisor</p>
-                      <p className="text-sm font-medium">{team.supervisor?.name || "Unassigned"}</p>
+                  <div className="rounded-lg border p-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="bg-primary/10 p-2 rounded-md">
+                          <Briefcase className="h-4 w-4 text-primary" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Supervisor</p>
+                          <p className="text-sm font-medium">{team.supervisor?.name || "Unassigned"}</p>
+                        </div>
+                      </div>
+                      {canManageSupervisor && (
+                        <div className="flex flex-wrap gap-2">
+                          {hasSupervisor ? (
+                            <AlertDialog open={isRemoveSupervisorDialogOpen} onOpenChange={setIsRemoveSupervisorDialogOpen}>
+                              <AlertDialogTrigger asChild>
+                                <Button size="sm" variant="destructive" className="gap-2">
+                                  Remove Supervisor
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Remove supervisor?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    This will unassign the current supervisor from <strong>{team.name}</strong>.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    onClick={handleCoordinatorRemoveSupervisor}
+                                  >
+                                    Yes, remove supervisor
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          ) : (
+                            <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
+                              <DialogTrigger asChild>
+                                <Button size="sm" variant="outline" className="gap-2">
+                                  Assign Supervisor
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent>
+                                <DialogHeader>
+                                  <DialogTitle>Assign Supervisor</DialogTitle>
+                                  <DialogDescription>
+                                    Choose a supervisor to assign to this team.
+                                  </DialogDescription>
+                                </DialogHeader>
+                                <div className="space-y-4 py-4">
+                                  <div className="space-y-2">
+                                    <Label htmlFor="supervisorId">Supervisor</Label>
+                                    <Select value={selectedSupervisorId} onValueChange={setSelectedSupervisorId}>
+                                      <SelectTrigger id="supervisorId">
+                                        <SelectValue placeholder={isLoadingSupervisors ? "Loading supervisors..." : "Select a supervisor"} />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {supervisors?.length ? (
+                                          supervisors.map((sup) => (
+                                            <SelectItem key={sup.id} value={sup.id.toString()}>
+                                              {sup.name} • {sup.email}
+                                            </SelectItem>
+                                          ))
+                                        ) : (
+                                          <SelectItem value="" disabled>
+                                            No supervisors available
+                                          </SelectItem>
+                                        )}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                </div>
+                                <DialogFooter>
+                                  <Button variant="outline" onClick={() => setIsAssignDialogOpen(false)}>Cancel</Button>
+                                  <Button
+                                    onClick={handleAssignSupervisor}
+                                    disabled={isAssigningSupervisor || !selectedSupervisorId || isLoadingSupervisors}
+                                  >
+                                    {isAssigningSupervisor ? "Assigning..." : "Assign Supervisor"}
+                                  </Button>
+                                </DialogFooter>
+                              </DialogContent>
+                            </Dialog>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                   {isCurrentSupervisor && (
