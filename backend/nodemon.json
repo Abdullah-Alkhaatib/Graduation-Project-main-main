@@ -1,0 +1,13 @@
+{
+  "watch": ["src", "server.js", ".env"],
+  "ext": "js,mjs,cjs,ts,json",
+  "ignore": [
+    "dist/**",
+    "dist\\**",
+    "node_modules/**",
+    "node_modules\\**",
+    "uploads/**",
+    "uploads\\**",
+    "*.map"
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "folders": [
+    {
+      "path": ".vscode"
+    },
+    {
+      "path": "backend"
+    },
+    {
+      "path": "frontend"
+    }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/.git": true,
+      "**/dist": true,
+      ".agents": true,
+      ".local": true,
+      "node_modules": true,
+      "package.json": true,
+      "pnpm-lock.yaml": true,
+      "pnpm-workspace.yaml": true,
+      "tsconfig.base.json": true,
+      "tsconfig.json": true,
+      "workspace.md": true,
+      ".npmrc": true,
+      ".gitignore": true,
+      "Graduation-Project-Hub.code-workspace": true
+    },
+    "search.exclude": {
+      "**/dist": true
+    }
+  }
+}

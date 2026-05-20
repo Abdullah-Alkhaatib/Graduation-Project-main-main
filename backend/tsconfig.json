@@ -1,0 +1,14 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@workspace/db": ["src/_shared/db/index.ts"],
+      "@workspace/api-zod": ["src/_shared/api-zod/index.ts"]
+    }
+  },
+  "include": ["src"]
+}
