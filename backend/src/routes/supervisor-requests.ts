@@ -130,14 +130,34 @@ router.post("/coordinator/assign-supervisor", requireAuth, requireRole("coordina
   const [supervisor] = await db.select().from(usersTable).where(and(eq(usersTable.id, supervisorId), eq(usersTable.role, "supervisor")));
   if (!supervisor) { res.status(404).json({ error: "Supervisor not found" }); return; }
 
-  await db.update(teamsTable).set({ supervisorId, status: "supervised" }).where(eq(teamsTable.id, teamId));
-  const members = await db.select().from(teamMembersTable).where(eq(teamMembersTable.teamId, teamId));
-  for (const m of members) {
-    await createNotification(m.userId, "supervisor_assigned", `Supervisor ${supervisor.name} has been assigned to your team`);
-  }
-  await logActivity("supervisor_assigned_by_coordinator", `Coordinator assigned ${supervisor.name} to team "${team.name}"`, req.user!.id, teamId);
+  if (team.supervisorId) { res.status(400).json({ error: "Team already has a supervisor" }); return; }
 
-  res.json({ message: "Supervisor assigned successfully" });
+  const [existingPendingForTeam] = await db
+    .select()
+    .from(supervisorRequestsTable)
+    .where(and(eq(supervisorRequestsTable.teamId, teamId), eq(supervisorRequestsTable.status, "pending")));
+  if (existingPendingForTeam) {
+    res.status(400).json({ error: "This team already has a pending supervisor request" });
+    return;
+  }
+
+  const [request] = await db.insert(supervisorRequestsTable).values({
+    teamId,
+    supervisorId,
+    status: "pending",
+    message: `Coordinator requested you to supervise team "${team.name}"`,
+  }).returning();
+
+  await createNotification(
+    supervisorId,
+    "supervision_request",
+    `Coordinator requested you to supervise team "${team.name}". Please accept or reject.`,
+    request.id,
+    "supervisor_request",
+  );
+  await logActivity("supervisor_request_sent_by_coordinator", `Coordinator sent supervision request to ${supervisor.name} for team "${team.name}"`, req.user!.id, teamId);
+
+  res.json({ message: "Supervisor request sent successfully" });
 });
 
 router.post("/coordinator/unassign-supervisor", requireAuth, requireRole("coordinator"), async (req, res): Promise<void> => {

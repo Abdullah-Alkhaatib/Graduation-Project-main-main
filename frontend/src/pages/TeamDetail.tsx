@@ -97,7 +97,7 @@ export default function TeamDetail() {
       setInviteStudentId("");
       toast({
         title: "Invitation Sent",
-        description: "The student has been invited to the team.",
+        description: "Team members were notified to approve or reject this invitation.",
       });
     } catch (error: any) {
       toast({
@@ -468,12 +468,18 @@ export default function TeamDetail() {
                           <Input 
                             id="studentId" 
                             type="text"
-                            placeholder="e.g. ABC123" 
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            placeholder="e.g. 123456"
+                            maxLength={6}
                             value={inviteStudentId}
-                            onChange={(e) => setInviteStudentId(e.target.value)}
+                            onChange={(e) => {
+                              const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 6);
+                              setInviteStudentId(digitsOnly);
+                            }}
                           />
                           <p className="text-xs text-muted-foreground">
-                            Use the 6-character student ID of the student account.
+                            Use the 6-digit student ID (numbers only).
                           </p>
                         </div>
                       </div>

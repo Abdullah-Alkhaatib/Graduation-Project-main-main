@@ -216,7 +216,7 @@ export default function Teams() {
 
       toast({
         title: "Invitation sent",
-        description: "The student has been invited to your team.",
+        description: "The team members were notified to approve or reject this invitation.",
       });
     } catch (error: any) {
       toast({

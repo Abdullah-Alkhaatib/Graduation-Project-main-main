@@ -4,6 +4,8 @@ import {
   useGetCoordinatorDashboard, 
   getGetCoordinatorDashboardQueryKey,
   useCoordinatorAssignSupervisor,
+  useListSupervisorRequests,
+  getListSupervisorRequestsQueryKey,
   useListUsers,
   getListUsersQueryKey,
   ListUsersRole,
@@ -36,7 +38,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Users, Briefcase, Activity, UserPlus, Clock, UserMinus, UserX } from "lucide-react";
 import { format } from "date-fns";
 
@@ -75,6 +77,31 @@ export default function Coordinator() {
       enabled: user?.role === 'coordinator'
     }
   });
+
+  const { data: supervisorRequests } = useListSupervisorRequests({
+    query: {
+      queryKey: getListSupervisorRequestsQueryKey(),
+      enabled: user?.role === 'coordinator'
+    }
+  });
+
+  const pendingRequestByTeam = useMemo(() => {
+    const map = new Map<number, { supervisorName: string; createdAt: Date | string }>();
+    if (!supervisorRequests) return map;
+
+    for (const request of supervisorRequests) {
+      if (request.status !== 'pending') continue;
+      const current = map.get(request.teamId);
+      if (!current || new Date(request.createdAt).getTime() > new Date(current.createdAt).getTime()) {
+        map.set(request.teamId, {
+          supervisorName: request.supervisor?.name || 'Supervisor',
+          createdAt: request.createdAt,
+        });
+      }
+    }
+
+    return map;
+  }, [supervisorRequests]);
 
   const assignSupervisor = useCoordinatorAssignSupervisor();
 
@@ -120,9 +147,11 @@ export default function Coordinator() {
         }
       });
       queryClient.invalidateQueries({ queryKey: getGetCoordinatorDashboardQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getListSupervisorRequestsQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getListActivityLogsQueryKey() });
       setAssigningTeamId(null);
       form.reset();
-      toast({ title: "Supervisor Assigned", description: "The team has been assigned a supervisor." });
+      toast({ title: "Request Sent", description: "The supervisor received a request and must accept it first." });
     } catch (error: any) {
       toast({ title: "Error", description: error.message || "Failed to assign supervisor.", variant: "destructive" });
     }
@@ -194,6 +223,11 @@ export default function Coordinator() {
                           <h4 className="font-bold text-base">{team.name}</h4>
                           <p className="text-sm text-muted-foreground">{team.projectTitle || 'No project title'}</p>
                           <p className="text-xs mt-1 font-medium">{team.memberCount} members</p>
+                          {pendingRequestByTeam.has(team.id) && (
+                            <Badge variant="secondary" className="mt-2">
+                              Request sent to {pendingRequestByTeam.get(team.id)?.supervisorName}
+                            </Badge>
+                          )}
                         </div>
                         
                         <Dialog open={assigningTeamId === team.id} onOpenChange={(open) => {
@@ -201,8 +235,13 @@ export default function Coordinator() {
                           if (!open) form.reset();
                         }}>
                           <DialogTrigger asChild>
-                            <Button size="sm" variant="outline" className="shrink-0 gap-2 cursor-pointer transition-colors hover:bg-muted/80">
-                              <UserPlus className="h-4 w-4" /> Assign
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="shrink-0 gap-2 cursor-pointer transition-colors hover:bg-muted/80"
+                              disabled={pendingRequestByTeam.has(team.id)}
+                            >
+                              <UserPlus className="h-4 w-4" /> {pendingRequestByTeam.has(team.id) ? "Request Pending" : "Assign"}
                             </Button>
                           </DialogTrigger>
                           <DialogContent>

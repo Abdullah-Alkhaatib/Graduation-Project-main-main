@@ -15,8 +15,12 @@ export interface Invitation {
   invitedUserId: number;
   invitedByUserId: number;
   status: InvitationStatus;
+  requiresTeamApproval?: boolean | null;
+  approvalForInvitationId?: number | null;
+  approvalTargetUserId?: number | null;
   createdAt: Date;
   team: Team;
   invitedUser: User;
   invitedBy: User;
+  approvalTargetUser?: User | null;
 }

@@ -395,6 +395,9 @@ export const ListInvitationsResponseItem = zod.object({
   invitedUserId: zod.number(),
   invitedByUserId: zod.number(),
   status: zod.enum(["pending", "accepted", "rejected"]),
+  requiresTeamApproval: zod.boolean().nullish(),
+  approvalForInvitationId: zod.number().nullish(),
+  approvalTargetUserId: zod.number().nullish(),
   createdAt: zod.coerce.date(),
   team: zod.object({
     id: zod.number(),
@@ -438,6 +441,15 @@ export const ListInvitationsResponseItem = zod.object({
     role: zod.enum(["student", "supervisor", "coordinator"]),
     createdAt: zod.coerce.date(),
   }),
+  approvalTargetUser: zod
+    .object({
+      id: zod.number(),
+      name: zod.string(),
+      email: zod.string(),
+      role: zod.enum(["student", "supervisor", "coordinator"]),
+      createdAt: zod.coerce.date(),
+    })
+    .nullish(),
 });
 export const ListInvitationsResponse = zod.array(ListInvitationsResponseItem);
 

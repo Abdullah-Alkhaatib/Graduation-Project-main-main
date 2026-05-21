@@ -35,6 +35,7 @@ router.get("/dashboard/student", requireAuth, async (req, res): Promise<void> =>
   }
 
   const invitations = await db.select().from(invitationsTable).where(and(eq(invitationsTable.invitedUserId, req.user!.id), eq(invitationsTable.status, "pending")));
+  const visiblePendingInvitations = invitations.filter((invitation) => !(invitation.requiresTeamApproval && !invitation.approvalForInvitationId));
   const notifications = await db.select().from(notificationsTable).where(and(eq(notificationsTable.userId, req.user!.id), eq(notificationsTable.isRead, false)));
 
   const recentActivity = await db
@@ -52,7 +53,7 @@ router.get("/dashboard/student", requireAuth, async (req, res): Promise<void> =>
     return { ...a, user };
   }));
 
-  res.json({ team, currentPhase, pendingTasks, submittedTasks, pendingInvitations: invitations.length, unreadNotifications: notifications.length, recentActivity: activityWithUsers });
+  res.json({ team, currentPhase, pendingTasks, submittedTasks, pendingInvitations: visiblePendingInvitations.length, unreadNotifications: notifications.length, recentActivity: activityWithUsers });
 });
 
 router.get("/dashboard/supervisor", requireAuth, async (req, res): Promise<void> => {

@@ -52,19 +52,26 @@ export default function Invitations() {
     return invitation.invitedUserId === user?.id && invitation.team.leaderId === user?.id;
   };
 
+  const isApprovalVoteRequest = (invitation: (typeof invitationsList)[number]) => {
+    return Boolean(invitation.approvalForInvitationId);
+  };
+
   const handleAccept = async (invitation: (typeof invitationsList)[number]) => {
     try {
       await acceptInvitation.mutateAsync({ id: invitation.id });
       queryClient.invalidateQueries({ queryKey: getListInvitationsQueryKey() });
 
       const joinRequest = isJoinRequestForLeader(invitation);
+      const approvalVote = isApprovalVoteRequest(invitation);
       toast({
-        title: joinRequest ? "Join Request Accepted" : "Invitation Accepted",
-        description: joinRequest
-          ? "The student was added to your team."
-          : "You have successfully joined the team.",
+        title: approvalVote ? "Vote Submitted" : joinRequest ? "Join Request Accepted" : "Invitation Accepted",
+        description: approvalVote
+          ? "Your approval was recorded for this invitation."
+          : joinRequest
+            ? "The student was added to your team."
+            : "You have successfully joined the team.",
       });
-      if (!joinRequest) {
+      if (!joinRequest && !approvalVote) {
         setLocation("/my-team");
       }
     } catch (error: any) {
@@ -82,11 +89,14 @@ export default function Invitations() {
       queryClient.invalidateQueries({ queryKey: getListInvitationsQueryKey() });
 
       const joinRequest = isJoinRequestForLeader(invitation);
+      const approvalVote = isApprovalVoteRequest(invitation);
       toast({
-        title: joinRequest ? "Join Request Rejected" : "Invitation Rejected",
-        description: joinRequest
-          ? "The join request was rejected."
-          : "You have rejected the team invitation.",
+        title: approvalVote ? "Vote Submitted" : joinRequest ? "Join Request Rejected" : "Invitation Rejected",
+        description: approvalVote
+          ? "Your rejection was recorded for this invitation."
+          : joinRequest
+            ? "The join request was rejected."
+            : "You have rejected the team invitation.",
       });
     } catch (error: any) {
       toast({
@@ -162,11 +172,12 @@ export default function Invitations() {
                     <div className="flex-1 p-6">
                       {(() => {
                         const joinRequest = isJoinRequestForLeader(invitation);
+                        const approvalVote = isApprovalVoteRequest(invitation);
                         return (
                           <>
                             <div className="flex items-center justify-between mb-2">
                               <Badge variant="outline" className="bg-blue-50 text-blue-700">
-                                {joinRequest ? "Join Request" : "Team Invitation"}
+                                {approvalVote ? "Team Vote Request" : joinRequest ? "Join Request" : "Team Invitation"}
                               </Badge>
                               <span className="text-xs text-muted-foreground flex items-center gap-1">
                                 <Clock className="h-3 w-3" />
@@ -184,10 +195,15 @@ export default function Invitations() {
                                 {invitation.team.memberCount} existing members
                               </div>
                               <div>
-                                {joinRequest ? "Requested by" : "Invited by"}{" "}
+                                {approvalVote ? "Invited by leader" : joinRequest ? "Requested by" : "Invited by"}{" "}
                                 <span className="font-medium text-foreground">{invitation.invitedBy.name}</span>
                               </div>
                             </div>
+                            {approvalVote && (
+                              <p className="text-sm text-muted-foreground mt-2">
+                                Vote to add <span className="font-medium text-foreground">{invitation.approvalTargetUser?.name || "this student"}</span> to your team.
+                              </p>
+                            )}
                           </>
                         );
                       })()}
