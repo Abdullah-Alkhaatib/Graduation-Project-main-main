@@ -22,6 +22,7 @@ import Students from "@/pages/Students";
 import StudentDetail from "@/pages/StudentDetail";
 import Coordinator from "@/pages/Coordinator";
 import CoordinatorSupervisors from "@/pages/CoordinatorSupervisors";
+import ScheduledDiscussions from "@/pages/ScheduledDiscussions";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -68,8 +69,9 @@ function Router() {
       <Route path="/notifications"><ProtectedRoute component={Notifications} /></Route>
       <Route path="/students"><ProtectedRoute component={Students} /></Route>
       <Route path="/students/:id"><ProtectedRoute component={StudentDetail} /></Route>
-      <Route path="/coordinator"><ProtectedRoute component={Coordinator} /></Route>
+      <Route path="/coordinator/scheduled-discussions"><ProtectedRoute component={ScheduledDiscussions} /></Route>
       <Route path="/coordinator/supervisors"><ProtectedRoute component={CoordinatorSupervisors} /></Route>
+      <Route path="/coordinator"><ProtectedRoute component={Coordinator} /></Route>
 
       <Route component={NotFound} />
     </Switch>

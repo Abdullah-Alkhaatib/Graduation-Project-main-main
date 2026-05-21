@@ -8,5 +8,7 @@ export * from "./tasks";
 export * from "./submissions";
 export * from "./meetings";
 export * from "./notifications";
+export * from "./discussion-schedules";
+export * from "./discussion-settings";
 export * from "./activity-logs";
 export * from "./announcements";

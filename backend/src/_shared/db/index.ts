@@ -140,6 +140,10 @@ function applyDefaults(tableName: string, row: Row): Row {
       return { userId: null, teamId: null, createdAt: now, ...row };
     case "team_announcements":
       return { title: null, description: null, leaderId: null, teamId: null, createdAt: now, ...row };
+    case "discussion_schedules":
+      return { status: "scheduled", createdAt: now, updatedAt: now, ...row };
+    case "discussion_settings":
+      return { includedTeamIds: null, createdAt: now, updatedAt: now, ...row };
     default:
       return { ...row };
   }

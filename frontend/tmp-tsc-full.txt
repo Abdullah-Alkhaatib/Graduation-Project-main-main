@@ -1,0 +1,20 @@
+﻿src/components/StudentIdBadge.tsx(8,5): error TS2741: Property 'queryKey' is missing in type '{ enabled: boolean; }' but required in type 'UseQueryOptions<StudentProfile, ErrorType<unknown>, StudentProfile, readonly unknown[]>'.
+src/pages/MyTeam.tsx(84,127): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type 'CreateTeamBody'.
+src/pages/Profile.tsx(561,96): error TS2304: Cannot find name 'DateWithHoursEditorProps'.
+src/pages/TeamDetail.tsx(93,11): error TS2353: Object literal may only specify known properties, and 'studentId' does not exist in type 'SendInvitationBody'.
+src/pages/Teams.tsx(60,11): error TS2322: Type 'string' is not assignable to type 'readonly unknown[]'.
+src/pages/Teams.tsx(111,55): error TS2339: Property 'userName' does not exist on type 'StudentProfile'.
+src/pages/Teams.tsx(213,11): error TS2353: Object literal may only specify known properties, and 'studentId' does not exist in type 'SendInvitationBody'.
+src/pages/Teams.tsx(237,43): error TS2559: Type '"/api/teams"' has no properties in common with type 'InvalidateQueryFilters<readonly unknown[]>'.
+src/pages/Teams.tsx(240,39): error TS2559: Type '"/api/teams"' has no properties in common with type 'InvalidateQueryFilters<readonly unknown[]>'.
+src/pages/Teams.tsx(424,29): error TS2677: A type predicate's type must be assignable to its parameter's type.
+  Type '{ id: number; name: string; }' is missing the following properties from type 'User': email, role, createdAt
+src/pages/Teams.tsx(426,22): error TS18049: 'sup' is possibly 'null' or 'undefined'.
+src/pages/Teams.tsx(426,39): error TS18049: 'sup' is possibly 'null' or 'undefined'.
+src/pages/Teams.tsx(426,47): error TS2345: Argument of type 'User | null | undefined' is not assignable to parameter of type '{ id: number; name: string; }'.
+  Type 'undefined' is not assignable to type '{ id: number; name: string; }'.
+src/pages/Teams.tsx(643,26): error TS2322: Type '{ placeholder: string; onChange: (...event: any[]) => void; onBlur: Noop; value: string | null | undefined; disabled?: boolean | undefined; name: "description"; ref: RefCallBack; }' is not assignable to type 'Omit<DetailedHTMLProps<TextareaHTMLAttributes<HTMLTextAreaElement>, HTMLTextAreaElement>, "ref">'.
+  Types of property 'value' are incompatible.
+    Type 'string | null | undefined' is not assignable to type 'string | number | readonly string[] | undefined'.
+      Type 'null' is not assignable to type 'string | number | readonly string[] | undefined'.
+src/pages/Teams.tsx(828,82): error TS2367: This comparison appears to be unintentional because the types '"forming"' and '"completed"' have no overlap.

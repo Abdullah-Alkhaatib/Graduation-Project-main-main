@@ -63,6 +63,7 @@ export function Sidebar() {
     { href: "/teams", label: "All Teams", icon: Briefcase },
     { href: "/students", label: "Students", icon: Users },
     { href: "/coordinator/supervisors", label: "Supervisors", icon: UserCheck },
+    { href: "/coordinator/scheduled-discussions", label: "Scheduled Discussions", icon: Calendar },
     { href: "/coordinator", label: "Coordinator Panel", icon: ClipboardList },
     { href: "/notifications", label: "Notifications", icon: Bell },
   ];
