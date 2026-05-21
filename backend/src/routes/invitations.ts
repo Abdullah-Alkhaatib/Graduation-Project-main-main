@@ -188,11 +188,16 @@ router.post("/invitations", requireAuth, async (req, res): Promise<void> => {
     .where(eq(usersTable.id, invitedUserId));
 
   if (reviewers.length === 0) {
-    await db.insert(teamMembersTable).values({ teamId, userId: invitedUserId, role: "member" });
-    await db.update(invitationsTable).set({ status: "accepted" }).where(eq(invitationsTable.id, inv.id));
-    await createNotification(invitedUserId, "invitation_accepted", `You have been added to team "${team.name}"`);
-    await createNotification(req.user!.id, "invitation_accepted", `${candidateUser?.name || "Student"} has been added to your team`);
-    await logActivity("invitation_auto_accepted", `${candidateUser?.name || "A student"} joined team "${team.name}" (no additional voters)`, req.user!.id, teamId);
+    // Even when there are no other reviewers, require the invited student to accept explicitly.
+    // Mark the parent invitation as teamApproved so the candidate can see and accept/reject it.
+    await db.update(invitationsTable).set({ teamApproved: true }).where(eq(invitationsTable.id, inv.id));
+
+    if (candidateUser) {
+      await createNotification(candidateUser.id, "invitation_ready", `Team "${team.name}" approved your invitation. Please accept or decline to join.`, inv.id, "invitation");
+    }
+    await createNotification(req.user!.id, "invitation_team_approved", `Team members approved the invitation for ${candidateUser?.name || "the student"}. Waiting for their response.`);
+    await logActivity("invitation_team_approved", `${req.user!.name} invited ${candidateUser?.name || "a student"} to "${team.name}" (no reviewers) — awaiting candidate response`, req.user!.id, teamId);
+
     res.status(201).json(await formatInvitation(inv));
     return;
   }

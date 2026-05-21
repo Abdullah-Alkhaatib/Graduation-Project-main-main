@@ -142,6 +142,7 @@ export default function Teams() {
   const createTeam = useCreateTeam();
   const updateTeam = useUpdateTeam();
   const sendInvitation = useSendInvitation();
+  const [sentInvites, setSentInvites] = useState<string[]>([]);
   const form = useForm<CreateTeamValues>({
     resolver: zodResolver(createTeamSchema),
     defaultValues: {
@@ -207,17 +208,9 @@ export default function Teams() {
     if (!myTeam || !isLeader) return;
 
     try {
-      await sendInvitation.mutateAsync({
-        data: {
-          teamId: myTeam.id,
-          studentId,
-        },
-      });
-
-      toast({
-        title: "Invitation sent",
-        description: "The team members were notified to approve or reject this invitation.",
-      });
+      await sendInvitation.mutateAsync({ data: { teamId: myTeam.id, studentId } });
+      setSentInvites((s) => [...s, studentId]);
+      toast({ title: "Invitation sent", description: "Team members were notified to approve or reject this invitation." });
     } catch (error: any) {
       toast({
         title: "Could not send invitation",
@@ -879,18 +872,39 @@ export default function Teams() {
                           {team.description || "No description provided."}
                         </p>
                       </CardContent>
-                      {team.leaderId === user?.id ? (
-                        <CardFooter className="pt-0">
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            className="w-full"
-                            onClick={() => handleDeleteAnnouncement(parseInt(team.id.replace('ann-', '')))}
-                          >
-                            Delete Post
-                          </Button>
-                        </CardFooter>
-                      ) : null}
+                      <CardFooter className="pt-0">
+                        <div className="flex w-full gap-2">
+                          {team.leaderId === user?.id ? (
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              className="w-full"
+                              onClick={() => handleDeleteAnnouncement(parseInt(team.id.replace('ann-', '')))}
+                            >
+                              Delete Post
+                            </Button>
+                          ) : null}
+
+                          {isLeader && team.leaderId !== user?.id && (
+                            (() => {
+                              const profile = studentProfilesList.find((p) => p.userId === team.leaderId || p.user?.id === team.leaderId);
+                              const sid = profile?.studentId || null;
+                              const alreadySent = sid ? sentInvites.includes(String(sid)) : false;
+                              const disabled = !sid || !myTeam || alreadySent || sendInvitation.isPending;
+                              return (
+                                <Button
+                                  type="button"
+                                  className="w-full"
+                                  onClick={() => sid && handleInviteStudent(String(sid))}
+                                  disabled={disabled}
+                                >
+                                  {alreadySent ? "Invitation Sent" : disabled ? "Cannot invite" : "Invite To My Team"}
+                                </Button>
+                              );
+                            })()
+                          )}
+                        </div>
+                      </CardFooter>
                     </Card>
                   ))}
                 </div>

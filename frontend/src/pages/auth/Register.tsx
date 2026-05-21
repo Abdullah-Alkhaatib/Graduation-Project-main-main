@@ -35,8 +35,8 @@ const registerSchema = z
         ctx.addIssue({ path: ["studentId"], code: z.ZodIssueCode.custom, message: "Student ID is required for students" });
         return;
       }
-      if (!/^[0-9A-Za-z]{6}$/.test(sid)) {
-        ctx.addIssue({ path: ["studentId"], code: z.ZodIssueCode.custom, message: "Student ID must be 6 alphanumeric characters" });
+      if (!/^[0-9]{6}$/.test(sid)) {
+        ctx.addIssue({ path: ["studentId"], code: z.ZodIssueCode.custom, message: "Student ID must be exactly 6 digits" });
       }
     }
   });
@@ -181,7 +181,18 @@ export default function Register() {
                       <FormItem>
                         <FormLabel>Student ID</FormLabel>
                         <FormControl>
-                          <Input placeholder="e.g. 123456" {...field} value={field.value || ''} />
+                          <Input
+                            placeholder="e.g. 123456"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            maxLength={6}
+                            {...field}
+                            value={field.value || ''}
+                            onChange={(e) => {
+                              const onlyDigits = e.target.value.replace(/\D/g, '').slice(0, 6);
+                              field.onChange(onlyDigits);
+                            }}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
