@@ -34,9 +34,20 @@ export type DiscussionScheduleDraft = {
   status: "scheduled";
 };
 
+export type DiscussionScheduleOverview = {
+  totalSessions: number;
+  teamCount: number;
+  roomCount: number;
+  examinerCount: number;
+  supervisorCount: number;
+  dayCount: number;
+  maxConcurrentSessions: number;
+};
+
 export type DiscussionScheduleResult = {
   schedules: DiscussionScheduleDraft[];
   warnings: string[];
+  overview: DiscussionScheduleOverview;
 };
 
 function parseTimeToMinutes(value: string) {
@@ -184,6 +195,16 @@ export async function buildDiscussionSchedule(
     throw new Error("Not enough scheduling capacity. Increase working hours, add rooms, or shorten the discussion duration.");
   }
 
+  const warnings: string[] = [];
+  const maxConcurrentSessions = Math.floor(supervisors.length / 3);
+  if (settings.roomsCount > maxConcurrentSessions) {
+    warnings.push(
+      `Selected ${settings.roomsCount} rooms, but only ${supervisors.length} instructor(s) are available. ` +
+      `At most ${maxConcurrentSessions} session(s) can run in parallel with the current supervisor pool. ` +
+      `The scheduler will therefore spread sessions across additional time slots.`,
+    );
+  }
+
   const instructorLookup = new Map<number, User>();
   supervisors.forEach((supervisor) => instructorLookup.set(supervisor.id, supervisor));
 
@@ -218,13 +239,15 @@ export async function buildDiscussionSchedule(
       throw new Error(`Team ${team.name} is missing a supervisor and can’t be scheduled.`);
     }
 
+    const supervisorId = team.supervisorId;
+
     const slot = slots.find((slotEntry, index) => {
       const slotKey = `${slotEntry.date}|${slotEntry.startTime}`;
       const alreadyUsed = scheduleAssignments.some((assignment) => assignment.date === slotEntry.date && assignment.startTime === slotEntry.startTime && assignment.room === slotEntry.room);
       if (alreadyUsed) return false;
-      if (isInstructorBusy(team.supervisorId, slotEntry)) return false;
+      if (isInstructorBusy(supervisorId, slotEntry)) return false;
 
-      const candidateExaminerIds = availableExaminerIds.filter((examinerId) => examinerId !== team.supervisorId && !isInstructorBusy(examinerId, slotEntry));
+      const candidateExaminerIds = availableExaminerIds.filter((examinerId) => examinerId !== supervisorId && !isInstructorBusy(examinerId, slotEntry));
       if (candidateExaminerIds.length < 2) return false;
 
       const pairOptions = [] as Array<{
@@ -261,7 +284,7 @@ export async function buildDiscussionSchedule(
       const best = pairOptions[0];
       scheduleAssignments.push({
         teamId: team.id,
-        supervisorId: team.supervisorId,
+        supervisorId,
         examiner1Id: best.examiner1Id,
         examiner2Id: best.examiner2Id,
         room: slotEntry.room,
@@ -271,7 +294,7 @@ export async function buildDiscussionSchedule(
         status: "scheduled",
       });
 
-      markBusy(team.supervisorId, slotEntry);
+      markBusy(supervisorId, slotEntry);
       markBusy(best.examiner1Id, slotEntry);
       markBusy(best.examiner2Id, slotEntry);
       const pairKey = buildPairKey(best.examiner1Id, best.examiner2Id);
@@ -284,5 +307,25 @@ export async function buildDiscussionSchedule(
     }
   }
 
-  return { schedules: scheduleAssignments, warnings: [] };
+  const uniqueExaminerIds = new Set<number>();
+  scheduleAssignments.forEach((assignment) => {
+    uniqueExaminerIds.add(assignment.examiner1Id);
+    uniqueExaminerIds.add(assignment.examiner2Id);
+  });
+
+  const dayCount = new Set(scheduleAssignments.map((assignment) => assignment.date)).size;
+
+  return {
+    schedules: scheduleAssignments,
+    warnings,
+    overview: {
+      totalSessions: scheduleAssignments.length,
+      teamCount: candidateTeams.length,
+      roomCount: settings.roomsCount,
+      examinerCount: uniqueExaminerIds.size,
+      supervisorCount: supervisors.length,
+      dayCount,
+      maxConcurrentSessions,
+    },
+  };
 }

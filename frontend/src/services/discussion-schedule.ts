@@ -7,6 +7,7 @@ export type DiscussionScheduleSettings = {
   breakDuration: number;
   roomsCount: number;
   includedTeamIds?: number[] | null;
+  includedSupervisorIds?: number[] | null;
 };
 
 export type DiscussionScheduleSession = {
@@ -34,6 +35,7 @@ export type DiscussionScheduleSession = {
 export type DiscussionScheduleResponse = {
   schedules: DiscussionScheduleSession[];
   settings: DiscussionScheduleSettings | null;
+  warnings?: string[];
 };
 
 async function apiFetch<T>(path: string, options: RequestInit = {}) {

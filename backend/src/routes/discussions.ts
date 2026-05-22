@@ -18,6 +18,7 @@ const generateRequestSchema = z.object({
   breakDuration: z.number().int().min(0),
   roomsCount: z.number().int().min(1),
   includedTeamIds: z.array(z.number()).optional(),
+  includedSupervisorIds: z.array(z.number()).optional(),
 });
 
 const updateScheduleSchema = z.object({
@@ -111,16 +112,28 @@ router.post("/discussions/generate", requireAuth, requireRole("coordinator"), as
       return { ...team, supervisorId, supervisorName, supervisorEmail };
     }));
 
-    const supervisors = await db.select().from(usersTable).then((users) => users.filter((user) => user.role === "supervisor"));
+    const allSupervisors = await db.select().from(usersTable).then((users) => users.filter((user) => user.role === "supervisor"));
+    const supervisors = parsed.includedSupervisorIds?.length
+      ? allSupervisors.filter((sup) => parsed.includedSupervisorIds!.includes(sup.id))
+      : allSupervisors;
 
     const { schedules, warnings } = await buildDiscussionSchedule(teamsWithSupervisor, supervisors, parsed as DiscussionSettingsInput);
 
-    await db.delete(discussionSchedulesTable).where(eq(discussionSchedulesTable.id, discussionSchedulesTable.id));
-    await db.delete(discussionSettingsTable).where(eq(discussionSettingsTable.id, discussionSettingsTable.id));
+    const existingSchedules = await db.select().from(discussionSchedulesTable);
+    await Promise.all(existingSchedules.map((schedule) => db.delete(discussionSchedulesTable).where(eq(discussionSchedulesTable.id, schedule.id))));
+
+    const existingSettings = await db.select().from(discussionSettingsTable);
+    await Promise.all(existingSettings.map((setting) => db.delete(discussionSettingsTable).where(eq(discussionSettingsTable.id, setting.id))));
 
     const insertedSchedules = await db.insert(discussionSchedulesTable).values(schedules).returning();
     await db.insert(discussionSettingsTable).values({
-      ...parsed,
+      startDate: parsed.startDate,
+      endDate: parsed.endDate,
+      workStartHour: parsed.workStartHour,
+      workEndHour: parsed.workEndHour,
+      discussionDuration: parsed.discussionDuration,
+      breakDuration: parsed.breakDuration,
+      roomsCount: parsed.roomsCount,
       includedTeamIds: parsed.includedTeamIds ?? null,
     });
 

@@ -12,9 +12,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, Briefcase, Mail, UserCheck, Shield, ArrowRight } from "lucide-react";
+import { Users, Briefcase, Mail, UserCheck, Shield, ArrowRight, UserMinus } from "lucide-react";
 import { Link } from "wouter";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 
 export default function CoordinatorSupervisors() {
   const { user } = useAuth();
@@ -36,6 +38,10 @@ export default function CoordinatorSupervisors() {
     }
   );
 
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [deletingSupervisorId, setDeletingSupervisorId] = useState<number | null>(null);
+
   const supervisorsWithTeams = useMemo(() => {
     const supervisorsList = Array.isArray(supervisors) ? supervisors : [];
     const teamsList = dashboard?.allTeamsList ?? [];
@@ -51,6 +57,34 @@ export default function CoordinatorSupervisors() {
       };
     });
   }, [dashboard?.allTeamsList, dashboard?.supervisorWorkload, supervisors]);
+
+  const handleDeleteSupervisor = async (supervisorId: number, supervisorName: string) => {
+    if (!window.confirm(`Delete supervisor "${supervisorName}" from the system? This will also unassign them from any teams.`)) {
+      return;
+    }
+
+    setDeletingSupervisorId(supervisorId);
+    try {
+      const response = await fetch(`/api/users/${supervisorId}`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      const result = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(result?.error || "Failed to delete supervisor.");
+      }
+
+      await queryClient.invalidateQueries({ queryKey: getGetCoordinatorDashboardQueryKey() });
+      await queryClient.invalidateQueries({ queryKey: getListUsersQueryKey({ role: ListUsersRole.supervisor }) });
+      toast({ title: "Supervisor Deleted", description: "The supervisor was removed from the system." });
+    } catch (error: any) {
+      toast({ title: "Error", description: error?.message || "Failed to delete supervisor.", variant: "destructive" });
+    } finally {
+      setDeletingSupervisorId(null);
+    }
+  };
 
   if (user?.role !== "coordinator") {
     return (
@@ -127,9 +161,21 @@ export default function CoordinatorSupervisors() {
                         </CardDescription>
                       </div>
                     </div>
-                    <Badge variant={teamCount > 0 ? "secondary" : "outline"} className="shrink-0">
-                      {teamCount} teams
-                    </Badge>
+                    <div className="flex flex-col items-end gap-2">
+                      <Badge variant={teamCount > 0 ? "secondary" : "outline"} className="shrink-0">
+                        {teamCount} teams
+                      </Badge>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="h-7 gap-1 px-2 text-xs"
+                        disabled={deletingSupervisorId === supervisor.id}
+                        onClick={() => handleDeleteSupervisor(supervisor.id, supervisor.name || "Supervisor")}
+                      >
+                        <UserMinus className="h-3.5 w-3.5" />
+                        {deletingSupervisorId === supervisor.id ? "Deleting..." : "Delete"}
+                      </Button>
+                    </div>
                   </div>
                 </CardHeader>
 

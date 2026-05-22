@@ -11,11 +11,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
-import { ArrowLeft, CalendarDays, Clock, Download, Edit3, Move, Search, Trash2, UserCheck, Users } from "lucide-react";
+import { ArrowLeft, CalendarDays, ChevronDown, ChevronUp, Clock, Download, Edit3, Move, Search, Trash2, UserCheck, Users } from "lucide-react";
 
 function timeRangeOverlaps(startA: string, endA: string, startB: string, endB: string) {
   const [aH, aM] = startA.split(":").map(Number);
@@ -66,6 +67,7 @@ export default function ScheduledDiscussions() {
   }) as any;
 
   const [selectedTeamIds, setSelectedTeamIds] = useState<number[]>([]);
+  const [selectedSupervisorIds, setSelectedSupervisorIds] = useState<number[]>([]);
   const [settings, setSettings] = useState<DiscussionScheduleSettings>({
     startDate: new Date().toISOString().slice(0, 10),
     endDate: new Date(new Date().setDate(new Date().getDate() + 2)).toISOString().slice(0, 10),
@@ -75,18 +77,28 @@ export default function ScheduledDiscussions() {
     breakDuration: 10,
     roomsCount: 2,
   });
+  type SortKey = "team" | "supervisor" | "examiner1" | "examiner2" | "date" | "time" | "room";
   const [search, setSearch] = useState("");
   const [filterSupervisor, setFilterSupervisor] = useState("all");
   const [filterRoom, setFilterRoom] = useState("all");
+  const [sortKey, setSortKey] = useState<SortKey>("date");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [editSession, setEditSession] = useState<DiscussionScheduleSession | null>(null);
   const [draggingSessionId, setDraggingSessionId] = useState<number | null>(null);
   const [editValues, setEditValues] = useState({ room: "", date: "", startTime: "", endTime: "", examiner1Id: "", examiner2Id: "" });
+  const [generationWarnings, setGenerationWarnings] = useState<string[]>([]);
 
   useEffect(() => {
     if (teams && selectedTeamIds.length === 0) {
       setSelectedTeamIds(teams.map((team) => team.id));
     }
   }, [teams, selectedTeamIds.length]);
+
+  useEffect(() => {
+    if (supervisors && selectedSupervisorIds.length === 0) {
+      setSelectedSupervisorIds(supervisors.map((sup) => sup.id));
+    }
+  }, [supervisors, selectedSupervisorIds.length]);
 
   const filteredSchedules = useMemo(() => {
     const sessions = scheduleData?.schedules ?? [];
@@ -97,6 +109,48 @@ export default function ScheduledDiscussions() {
       return matchesSearch && matchesSupervisor && matchesRoom;
     });
   }, [scheduleData?.schedules, search, filterSupervisor, filterRoom]);
+
+  const sortValue = (session: DiscussionScheduleSession) => {
+    switch (sortKey) {
+      case "team":
+        return session.team?.name?.toLowerCase() ?? "";
+      case "supervisor":
+        return session.supervisor?.name?.toLowerCase() ?? "";
+      case "examiner1":
+        return session.examiner1?.name?.toLowerCase() ?? "";
+      case "examiner2":
+        return session.examiner2?.name?.toLowerCase() ?? "";
+      case "date":
+        return `${session.date} ${session.startTime}`;
+      case "time":
+        return `${session.startTime} ${session.endTime}`;
+      case "room":
+        return session.room.toLowerCase();
+      default:
+        return "";
+    }
+  };
+
+  const sortedSchedules = useMemo(() => {
+    const sessions = [...filteredSchedules];
+    sessions.sort((a, b) => {
+      const left = sortValue(a);
+      const right = sortValue(b);
+      if (left < right) return sortDirection === "asc" ? -1 : 1;
+      if (left > right) return sortDirection === "asc" ? 1 : -1;
+      return 0;
+    });
+    return sessions;
+  }, [filteredSchedules, sortDirection, sortKey]);
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDirection("asc");
+    }
+  };
 
   const conflicts = useMemo(() => {
     const roomConflictIds = new Set<number>();
@@ -163,13 +217,31 @@ export default function ScheduledDiscussions() {
     setSelectedTeamIds([]);
   };
 
+  const handleToggleSupervisor = (supervisorId: number) => {
+    setSelectedSupervisorIds((current) =>
+      current.includes(supervisorId) ? current.filter((id) => id !== supervisorId) : [...current, supervisorId],
+    );
+  };
+
+  const handleSelectAllSupervisors = () => {
+    if (!supervisors) return;
+    setSelectedSupervisorIds(supervisors.map((sup) => sup.id));
+  };
+
+  const handleClearSupervisors = () => {
+    setSelectedSupervisorIds([]);
+  };
+
   const handleGenerate = async () => {
+    setGenerationWarnings([]);
     try {
-      await generateSchedule.mutateAsync({
+      const result = await generateSchedule.mutateAsync({
         ...settings,
         includedTeamIds: selectedTeamIds.length === teams?.length ? undefined : selectedTeamIds,
+        includedSupervisorIds: selectedSupervisorIds.length === supervisors?.length ? undefined : selectedSupervisorIds,
       });
       queryClient.invalidateQueries({ queryKey: ["discussions"] });
+      setGenerationWarnings(result.warnings ?? []);
       toast({ title: "Schedule created", description: "Graduation project discussions were generated successfully." });
     } catch (error: any) {
       toast({ title: "Error", description: error.message || "Failed to generate schedule.", variant: "destructive" });
@@ -333,6 +405,16 @@ export default function ScheduledDiscussions() {
               <CardDescription>Choose parameters and team selection for automated scheduling.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {generationWarnings.length > 0 && (
+                <Alert variant="destructive" className="mb-4">
+                  <AlertTitle>Schedule warning</AlertTitle>
+                  <AlertDescription>
+                    {generationWarnings.map((warning, index) => (
+                      <p key={index}>{warning}</p>
+                    ))}
+                  </AlertDescription>
+                </Alert>
+              )}
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <Label htmlFor="startDate">Start date</Label>
@@ -397,13 +479,44 @@ export default function ScheduledDiscussions() {
                   )}
                 </div>
               </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>Participating supervisors</Label>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={handleSelectAllSupervisors}>Select all</Button>
+                    <Button size="sm" variant="outline" onClick={handleClearSupervisors}>Clear</Button>
+                  </div>
+                </div>
+                <div className="max-h-48 overflow-y-auto rounded-lg border p-3 bg-background">
+                  {supervisorsLoading ? (
+                    <Skeleton className="h-40 w-full" />
+                  ) : supervisors?.length ? (
+                    <div className="space-y-2">
+                      {supervisors.map((sup) => (
+                        <label key={sup.id} className="flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={selectedSupervisorIds.includes(sup.id)}
+                            onChange={() => handleToggleSupervisor(sup.id)}
+                            className="h-4 w-4 rounded border-muted-foreground"
+                          />
+                          <span>{sup.name}</span>
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No supervisors available.</p>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">Selected supervisors are used for examiner assignment and capacity planning.</p>
+              </div>
             </CardContent>
             <CardFooter className="flex flex-col gap-2 sm:flex-row sm:justify-between">
-              <Button onClick={handleGenerate} disabled={generateSchedule.isLoading || teamsLoading || supervisorsLoading || selectedTeamIds.length === 0}>
+              <Button onClick={handleGenerate} disabled={generateSchedule.isLoading || teamsLoading || supervisorsLoading || selectedTeamIds.length === 0 || selectedSupervisorIds.length === 0}>
                 {generateSchedule.isLoading ? "Generating..." : "Generate Schedule"}
               </Button>
               <div className="text-sm text-muted-foreground">
-                {selectedTeamIds.length} team(s) selected · {supervisors?.length ?? 0} supervisors available
+                {selectedTeamIds.length} team(s) selected · {selectedSupervisorIds.length} supervisor(s) selected · {supervisors?.length ?? 0} available
               </div>
             </CardFooter>
           </Card>
@@ -511,24 +624,59 @@ export default function ScheduledDiscussions() {
                 <Skeleton className="h-8 w-full" />
                 <Skeleton className="h-8 w-full" />
               </div>
-            ) : filteredSchedules.length === 0 ? (
+            ) : sortedSchedules.length === 0 ? (
               <p className="text-sm text-muted-foreground py-8 text-center">No scheduled discussions found.</p>
             ) : (
               <Table className="min-w-full">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Team</TableHead>
-                    <TableHead>Supervisor</TableHead>
-                    <TableHead>Examiner 1</TableHead>
-                    <TableHead>Examiner 2</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Time</TableHead>
-                    <TableHead>Room</TableHead>
+                    <TableHead>
+                      <button type="button" className="flex items-center gap-2 cursor-pointer" onClick={() => toggleSort("team")}>
+                        Team
+                        {sortKey === "team" ? (sortDirection === "asc" ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />) : null}
+                      </button>
+                    </TableHead>
+                    <TableHead>
+                      <button type="button" className="flex items-center gap-2 cursor-pointer" onClick={() => toggleSort("supervisor")}>
+                        Supervisor
+                        {sortKey === "supervisor" ? (sortDirection === "asc" ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />) : null}
+                      </button>
+                    </TableHead>
+                    <TableHead>
+                      <button type="button" className="flex items-center gap-2 cursor-pointer" onClick={() => toggleSort("examiner1")}>
+                        Examiner 1
+                        {sortKey === "examiner1" ? (sortDirection === "asc" ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />) : null}
+                      </button>
+                    </TableHead>
+                    <TableHead>
+                      <button type="button" className="flex items-center gap-2 cursor-pointer" onClick={() => toggleSort("examiner2")}>
+                        Examiner 2
+                        {sortKey === "examiner2" ? (sortDirection === "asc" ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />) : null}
+                      </button>
+                    </TableHead>
+                    <TableHead>
+                      <button type="button" className="flex items-center gap-2 cursor-pointer" onClick={() => toggleSort("date")}>
+                        Date
+                        {sortKey === "date" ? (sortDirection === "asc" ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />) : null}
+                      </button>
+                    </TableHead>
+                    <TableHead>
+                      <button type="button" className="flex items-center gap-2 cursor-pointer" onClick={() => toggleSort("time")}>
+                        Time
+                        {sortKey === "time" ? (sortDirection === "asc" ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />) : null}
+                      </button>
+                    </TableHead>
+                    <TableHead>
+                      <button type="button" className="flex items-center gap-2 cursor-pointer" onClick={() => toggleSort("room")}>
+                        Room
+                        {sortKey === "room" ? (sortDirection === "asc" ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />) : null}
+                      </button>
+                    </TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredSchedules.map((session) => {
+                  {sortedSchedules.map((session) => {
                     const roomConflict = conflicts.roomConflictIds.has(session.id);
                     const instructorConflict = conflicts.instructorConflictIds.has(session.id);
                     return (
