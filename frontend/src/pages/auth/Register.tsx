@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { useRegister, useLogin, RegisterBodyRole } from "@workspace/api-client-react";
-import { useAuth } from "@/lib/auth";
+import { useRegister, RegisterBodyRole } from "@workspace/api-client-react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -47,8 +46,6 @@ export default function Register() {
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const registerMutation = useRegister();
-  const loginMutation = useLogin();
-  const { setUser } = useAuth();
   const [, setLocation] = useLocation();
 
   const form = useForm<RegisterFormValues>({
@@ -78,11 +75,7 @@ export default function Register() {
       }
       const payload = { ...data, studentId: data.studentId?.trim().toUpperCase() || null };
       await registerMutation.mutateAsync({ data: payload });
-      const loginResponse = await loginMutation.mutateAsync({
-        data: { email: data.email, password: data.password },
-      });
-      setUser(loginResponse.user);
-      setLocation("/dashboard");
+      setLocation("/login");
     } catch (err: any) {
       setError(err.message || "Failed to register. Please try again.");
     }
@@ -240,9 +233,9 @@ export default function Register() {
                     <Button
                       type="submit"
                       className="w-full mt-3"
-                      disabled={registerMutation.isPending || loginMutation.isPending}
+                      disabled={registerMutation.isPending}
                     >
-                      {registerMutation.isPending || loginMutation.isPending ? "Creating account..." : "Create account"}
+                      {registerMutation.isPending ? "Creating account..." : "Create account"}
                     </Button>
                   </form>
                 </Form>
