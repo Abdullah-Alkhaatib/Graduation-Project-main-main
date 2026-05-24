@@ -18,9 +18,9 @@ export default function Dashboard() {
   return (
     <AppLayout title="Dashboard">
       <div className="space-y-6">
-        <div>
+        <div className="page-heading">
           <h2 className="text-2xl font-bold tracking-tight">Welcome back, {user.name}</h2>
-          <p className="text-muted-foreground">
+          <p className="mt-1 text-muted-foreground">
             Here's what's happening with your graduation projects today.
           </p>
         </div>
@@ -70,7 +70,7 @@ function StudentDashboardView() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="col-span-4">
+        <Card className="dashboard-panel col-span-4">
           <CardHeader>
             <CardTitle>My Recent Activity</CardTitle>
             <CardDescription>Latest updates related to your account</CardDescription>
@@ -80,20 +80,20 @@ function StudentDashboardView() {
           </CardContent>
         </Card>
         
-        <Card className="col-span-3">
+        <Card className="dashboard-panel col-span-3">
           <CardHeader>
             <CardTitle>Quick Actions</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-4 rounded-md border p-3">
+              <div className="flex items-center gap-4 rounded-md border border-primary/10 bg-white/70 p-3">
                 <MailIcon className="h-5 w-5 text-muted-foreground" />
                 <div className="flex-1 space-y-1">
                   <p className="text-sm font-medium leading-none">Invitations</p>
                   <p className="text-sm text-muted-foreground">{data.pendingInvitations} pending invitations</p>
                 </div>
               </div>
-              <div className="flex items-center gap-4 rounded-md border p-3">
+              <div className="flex items-center gap-4 rounded-md border border-primary/10 bg-white/70 p-3">
                 <CheckCircle2 className="h-5 w-5 text-muted-foreground" />
                 <div className="flex-1 space-y-1">
                   <p className="text-sm font-medium leading-none">Submissions</p>
@@ -145,7 +145,7 @@ function SupervisorDashboardView() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="col-span-4">
+        <Card className="dashboard-panel col-span-4">
           <CardHeader>
             <CardTitle>My Recent Activity</CardTitle>
             <CardDescription>Your latest actions and updates</CardDescription>
@@ -155,7 +155,7 @@ function SupervisorDashboardView() {
           </CardContent>
         </Card>
         
-        <Card className="col-span-3">
+        <Card className="dashboard-panel col-span-3">
           <CardHeader>
             <CardTitle>Your Teams</CardTitle>
             <CardDescription>Quick overview</CardDescription>
@@ -266,7 +266,7 @@ function CoordinatorDashboardView() {
                 <div className="space-y-2">
                   {data.unassignedTeamsList.slice(0, 3).map(team => (
                     <div key={team.id} className="text-sm flex justify-between">
-                      <span className="truncate max-w-[180px] font-medium">{team.name}</span>
+                      <span className="truncate max-w-44 font-medium">{team.name}</span>
                       <span className="text-muted-foreground">{team.memberCount} members</span>
                     </div>
                   ))}
@@ -287,7 +287,7 @@ function CoordinatorDashboardView() {
 
 function StatCard({ title, value, description, icon: Icon, primary = false }: any) {
   return (
-    <Card className={primary ? "border-primary/50 shadow-sm" : ""}>
+    <Card className={primary ? "dashboard-stat-card border-primary/50" : "dashboard-stat-card"}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium">
           {title}
@@ -336,11 +336,11 @@ function DashboardSkeleton() {
         {[...Array(4)].map((_, i) => (
           <Card key={i}>
             <CardHeader className="pb-2">
-              <Skeleton className="h-4 w-[100px]" />
+              <Skeleton className="h-4 w-24" />
             </CardHeader>
             <CardContent>
-              <Skeleton className="h-8 w-[60px] mb-2" />
-              <Skeleton className="h-3 w-[120px]" />
+              <Skeleton className="h-8 w-16 mb-2" />
+              <Skeleton className="h-3 w-28" />
             </CardContent>
           </Card>
         ))}
@@ -348,8 +348,8 @@ function DashboardSkeleton() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
         <Card className="col-span-4">
           <CardHeader>
-            <Skeleton className="h-5 w-[150px] mb-2" />
-            <Skeleton className="h-4 w-[200px]" />
+            <Skeleton className="h-5 w-36 mb-2" />
+            <Skeleton className="h-4 w-48" />
           </CardHeader>
           <CardContent className="space-y-4">
             {[...Array(4)].map((_, i) => (
@@ -365,11 +365,11 @@ function DashboardSkeleton() {
         </Card>
         <Card className="col-span-3">
           <CardHeader>
-            <Skeleton className="h-5 w-[120px]" />
+            <Skeleton className="h-5 w-28" />
           </CardHeader>
           <CardContent className="space-y-4">
-            <Skeleton className="h-[60px] w-full" />
-            <Skeleton className="h-[60px] w-full" />
+            <Skeleton className="h-15 w-full" />
+            <Skeleton className="h-15 w-full" />
           </CardContent>
         </Card>
       </div>

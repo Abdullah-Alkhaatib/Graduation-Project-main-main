@@ -8,18 +8,15 @@ import {
   Briefcase, 
   Calendar, 
   Bell, 
-  Settings, 
   LogOut,
   Mail,
   UserPlus,
   ClipboardList,
   CheckSquare,
-  Activity,
   UserCheck
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import StudentIdBadge from "@/components/StudentIdBadge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 export function Sidebar() {
@@ -78,25 +75,31 @@ export function Sidebar() {
   const activeHref = matched.sort((a, b) => b.href.length - a.href.length)[0]?.href;
 
   return (
-    <div className="flex h-full w-64 flex-col border-r sidebar-glass">
-      <div className="flex h-14 items-center border-b px-4">
-        <div className="flex items-center gap-3 font-extrabold text-lg gradient-bg p-2 rounded-md text-primary-foreground w-100">
-          <Briefcase className="h-6 w-6 text-primary-foreground" />
-          <span className="tracking-tight">GPMS</span>
+    <div className="sidebar-panel flex h-full w-72 flex-col border-r border-sidebar-border/80 shadow-xl">
+      <div className="top-strip flex min-h-20 items-center border-b border-white/10 px-4">
+        <div className="flex w-full items-center gap-3 rounded-lg bg-white/8 p-3 text-primary-foreground">
+          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary text-primary-foreground">
+            <Briefcase className="h-5 w-5" />
+          </div>
+          <div className="flex flex-col leading-tight">
+            <span className="text-sm font-extrabold tracking-wide">GPMS</span>
+            <span className="text-xs font-medium text-white/80">JUST Academic Portal</span>
+          </div>
         </div>
       </div>
 
       <ScrollArea className="flex-1 py-4">
-        <nav className="space-y-1 px-2">
+        <div className="sidebar-group-title mb-2">Navigation</div>
+        <nav className="space-y-1.5 px-3">
           {links.map((link) => {
             const isActive = link.href === activeHref;
             const Icon = link.icon;
             return (
               <Link key={link.href} href={link.href}>
-                <div className={cn("relative flex items-center gap-3 rounded-md px-3 py-2 transition-colors cursor-pointer", isActive ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground/80 hover:bg-sidebar-hover") }>
+                <div className={cn("sidebar-link relative flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all cursor-pointer", isActive ? "sidebar-link-active text-primary" : "text-sidebar-foreground/85") }>
                   {/* left active indicator */}
-                  {isActive && <span className="absolute left-0 top-0 h-full w-1 rounded-r-md bg-primary" />}
-                  <Icon className={cn("h-5 w-5 flex-shrink-0", isActive ? "text-primary" : "text-sidebar-foreground/60")} />
+                  {isActive && <span className="absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-md bg-primary" />}
+                  <Icon className={cn("h-5 w-5 shrink-0", isActive ? "text-primary" : "text-sidebar-foreground/60")} />
                   <span className={cn("text-sm flex-1", isActive ? "font-semibold" : "font-medium")}>{link.label}</span>
                 </div>
               </Link>
@@ -105,20 +108,19 @@ export function Sidebar() {
         </nav>
       </ScrollArea>
 
-      <div className="border-t p-4">
-        <div className="flex items-center gap-3 mb-4 px-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-lg">
-            {userInitial}
-          </div>
-          <div className="flex flex-col">
-              <span className="text-sm font-semibold leading-none">{displayName}</span>
-              <div className="mt-1">
-                {/* <StudentIdBadge userId={user.id} /> */}
-              </div>
-              <span className="text-xs text-muted-foreground capitalize mt-1">{displayRole}</span>
+      <div className="border-t border-sidebar-border/80 p-4">
+        <div className="sidebar-user-card mb-3 rounded-xl p-3">
+          <div className="flex items-center gap-3 px-1">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-lg">
+              {userInitial}
+            </div>
+            <div className="flex flex-col">
+                <span className="text-sm font-semibold leading-none">{displayName}</span>
+                <span className="text-xs text-muted-foreground capitalize mt-1">{displayRole}</span>
+            </div>
           </div>
         </div>
-        <Button variant="outline" className="w-full justify-start gap-2" onClick={logout}>
+        <Button variant="outline" className="w-full justify-start gap-2 border-primary/20" onClick={logout}>
           <LogOut className="h-4 w-4" />
           Log out
         </Button>
