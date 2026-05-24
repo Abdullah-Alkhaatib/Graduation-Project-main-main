@@ -293,13 +293,13 @@ export default function Meetings() {
                         <div className="space-y-2">
                           <div className="flex items-center gap-2">
                             <h4 className="font-bold text-lg">
-                              {user?.role === 'supervisor' ? meeting.team.name : meeting.supervisor.name}
+                              {user?.role === 'supervisor' ? (meeting.team?.name ?? "Unknown team") : (meeting.supervisor?.name ?? "Unknown supervisor")}
                             </h4>
                             {getStatusBadge(meeting.status)}
                           </div>
                           <p className="text-sm font-medium flex items-center gap-1">
                             <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                            {format(new Date(meeting.proposedDate), 'EEEE, MMMM d, yyyy ')} at {format(new Date(meeting.proposedDate), 'h:mm a')}
+                            {(meeting.proposedDate ? `${format(new Date(meeting.proposedDate), 'EEEE, MMMM d, yyyy ')} at ${format(new Date(meeting.proposedDate), 'h:mm a')}` : "Unknown date/time")}
                           </p>
                           {meeting.notes && (
                             <p className="text-sm text-muted-foreground mt-2 border-l-2 pl-2">
@@ -307,7 +307,7 @@ export default function Meetings() {
                             </p>
                           )}
                           <p className="text-xs text-muted-foreground mt-1">
-                            Requested by {meeting.requestedBy.name}
+                            Requested by {meeting.requestedBy?.name ?? "Unknown"}
                           </p>
                         </div>
                         {user?.role === 'supervisor' && (
@@ -337,13 +337,13 @@ export default function Meetings() {
                         <div>
                           <div className="flex items-center gap-2 mb-1">
                             <h4 className="font-medium">
-                              {user?.role === 'supervisor' ? meeting.team.name : meeting.supervisor.name}
+                              {user?.role === 'supervisor' ? (meeting.team?.name ?? "Unknown team") : (meeting.supervisor?.name ?? "Unknown supervisor")}
                             </h4>
                             {getStatusBadge(meeting.status)}
                           </div>
                           <p className="text-sm text-muted-foreground flex items-center gap-1">
                             <CalendarIcon className="h-3 w-3" />
-                            {format(new Date(meeting.proposedDate), 'MMM d, yyyy h:mm a')}
+                            {meeting.proposedDate ? format(new Date(meeting.proposedDate), 'MMM d, yyyy h:mm a') : "Unknown date/time"}
                           </p>
                         </div>
                       </CardContent>

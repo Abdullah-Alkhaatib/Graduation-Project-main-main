@@ -215,16 +215,16 @@ export default function SupervisorRequests() {
                           <div className="flex items-center gap-2 mb-2">
                             <Badge className="bg-yellow-50 text-yellow-700 hover:bg-yellow-50">Pending</Badge>
                             <span className="text-xs text-muted-foreground flex items-center gap-1">
-                              <Clock className="h-3 w-3" /> {format(new Date(request.createdAt), "MMM d, yyyy")}
+                              <Clock className="h-3 w-3" /> {request.createdAt ? format(new Date(request.createdAt), "MMM d, yyyy") : "Unknown date"}
                             </span>
                           </div>
                           {user?.role === 'supervisor' ? (
                             <>
-                              <h4 className="font-bold text-lg">{request.team.name}</h4>
-                              <p className="text-sm font-medium">{request.team.projectTitle}</p>
+                              <h4 className="font-bold text-lg">{request.team?.name ?? "Unknown team"}</h4>
+                              <p className="text-sm font-medium">{request.team?.projectTitle ?? ""}</p>
                             </>
                           ) : (
-                            <h4 className="font-bold text-lg">To: {request.supervisor.name}</h4>
+                            <h4 className="font-bold text-lg">To: {request.supervisor?.name ?? "Unknown supervisor"}</h4>
                           )}
                           {request.message && (
                             <div className="mt-3 p-3 bg-muted rounded-md text-sm italic">
@@ -257,9 +257,9 @@ export default function SupervisorRequests() {
                     <CardContent className="p-4 flex justify-between items-center">
                       <div>
                         <h4 className="font-medium">
-                          {user?.role === 'supervisor' ? request.team.name : `To: ${request.supervisor.name}`}
+                          {user?.role === 'supervisor' ? (request.team?.name ?? "Unknown team") : `To: ${request.supervisor?.name ?? "Unknown supervisor"}`}
                         </h4>
-                        <span className="text-xs text-muted-foreground">{format(new Date(request.createdAt), "MMM d, yyyy")}</span>
+                        <span className="text-xs text-muted-foreground">{request.createdAt ? format(new Date(request.createdAt), "MMM d, yyyy") : "Unknown date"}</span>
                       </div>
                       <Badge variant={request.status === SupervisorRequestStatus.accepted ? "default" : "destructive"} className="capitalize">
                         {request.status}

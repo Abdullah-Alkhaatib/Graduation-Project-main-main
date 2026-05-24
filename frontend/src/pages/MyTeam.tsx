@@ -385,9 +385,9 @@ export default function MyTeam() {
                   <span className="text-sm font-medium">Supervisor</span>
                 </div>
                 <p className="text-lg font-bold">{team.supervisor?.name || "Unassigned"}</p>
-                <Button asChild variant="link" className="p-0 h-auto text-sm justify-start mt-1">
+                {/* <Button asChild variant="link" className="p-0 h-auto text-sm justify-start mt-1">
                   <Link href="/supervisor-requests">Manage Requests <ArrowRight className="h-3 w-3 ml-1" /></Link>
-                </Button>
+                </Button> */}
               </div>
 
               <div className="rounded-lg border p-4 flex flex-col justify-center gap-2">
