@@ -2,7 +2,7 @@ import { Router } from "express";
 import type { IRouter } from "express";
 import { db, usersTable, teamsTable, teamMembersTable, invitationsTable, tasksTable, meetingsTable, submissionsTable, teamAnnouncementsTable } from "@workspace/db";
 import { eq, ilike, and, sql } from "@workspace/db";
-import { requireAuth } from "../lib/session";
+import { requireAuth, requireRole } from "../lib/session";
 import { createNotification, logActivity } from "../lib/notify";
 
 const router: IRouter = Router();
@@ -411,6 +411,72 @@ router.post("/teams/:id/transfer-leader", requireAuth, async (req, res): Promise
   await logActivity("team_leader_transferred", `${req.user!.name} transferred leadership of team "${team.name}" to ${newLeader?.name || "another member"}`, req.user!.id, teamId);
 
   res.json({ message: "Leadership transferred successfully" });
+});
+
+// Coordinator: add a specific user directly to a team
+router.post("/teams/:id/add-member", requireAuth, requireRole("coordinator"), async (req, res): Promise<void> => {
+  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const teamId = parseInt(raw, 10);
+  const { userId } = req.body as { userId?: number };
+  const targetUserId = parseInt(String(userId || ""), 10);
+  if (isNaN(teamId) || isNaN(targetUserId)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const [team] = await db.select().from(teamsTable).where(eq(teamsTable.id, teamId));
+  if (!team) { res.status(404).json({ error: "Team not found" }); return; }
+
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, targetUserId));
+  if (!user) { res.status(404).json({ error: "User not found" }); return; }
+  if (user.role !== "student") { res.status(400).json({ error: "Only students can be added to teams" }); return; }
+
+  const existingMembership = await db.select().from(teamMembersTable).where(eq(teamMembersTable.userId, targetUserId));
+  if (existingMembership.length > 0) { res.status(400).json({ error: "User is already in a team" }); return; }
+
+  const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(teamMembersTable).where(eq(teamMembersTable.teamId, teamId));
+  const memberCount = countResult?.count ?? 0;
+  if (memberCount >= MAX_TEAM_MEMBERS) { res.status(400).json({ error: `Team is full. Maximum ${MAX_TEAM_MEMBERS} members allowed.` }); return; }
+
+  await db.insert(teamMembersTable).values({ teamId, userId: targetUserId, role: "member" });
+  await logActivity("team_member_added", `${req.user!.name} added ${user.name} to team "${team.name}"`, req.user!.id, teamId);
+  res.json({ message: "User added to team" });
+});
+
+// Coordinator: add a user to an Auto <Gender> team (or create one if none available)
+router.post("/teams/add-user-by-gender", requireAuth, requireRole("coordinator"), async (req, res): Promise<void> => {
+  const { userId } = req.body as { userId?: number };
+  const targetUserId = parseInt(String(userId || ""), 10);
+  if (isNaN(targetUserId)) { res.status(400).json({ error: "Invalid user id" }); return; }
+
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, targetUserId));
+  if (!user) { res.status(404).json({ error: "User not found" }); return; }
+  if (user.role !== "student") { res.status(400).json({ error: "Only students can be added to teams" }); return; }
+
+  const existingMembership = await db.select().from(teamMembersTable).where(eq(teamMembersTable.userId, targetUserId));
+  if (existingMembership.length > 0) { res.status(400).json({ error: "User is already in a team" }); return; }
+
+  const gender = user.gender ?? "Unknown";
+  const prefix = `Auto ${gender} Team`;
+
+  // find existing auto teams for that gender with available slots
+  const candidates = await db.select().from(teamsTable).where(ilike(teamsTable.name, `${prefix}%`));
+
+  for (const t of candidates) {
+    const [cnt] = await db.select({ count: sql<number>`count(*)::int` }).from(teamMembersTable).where(eq(teamMembersTable.teamId, t.id));
+    const c = cnt?.count ?? 0;
+    if (c < MAX_TEAM_MEMBERS) {
+      await db.insert(teamMembersTable).values({ teamId: t.id, userId: targetUserId, role: "member" });
+      await logActivity("team_member_added", `${req.user!.name} added ${user.name} to team "${t.name}"`, req.user!.id, t.id);
+      res.json({ message: "User added to existing auto gender team", teamId: t.id });
+      return;
+    }
+  }
+
+  // none found — create new auto team with this user as leader
+  const samePrefixCount = candidates.length;
+  const teamName = `${prefix} ${samePrefixCount + 1}`;
+  const [team] = await db.insert(teamsTable).values({ name: teamName, leaderId: targetUserId }).returning();
+  await db.insert(teamMembersTable).values({ teamId: team.id, userId: targetUserId, role: "leader" });
+  await logActivity("team_created", `Team "${teamName}" created by coordinator (auto gender)`, req.user!.id, team.id);
+  res.status(201).json({ message: "New auto gender team created and user added", teamId: team.id });
 });
 
 export default router;

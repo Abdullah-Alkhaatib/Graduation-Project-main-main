@@ -54,6 +54,9 @@ export default function Coordinator() {
   const [assigningTeamId, setAssigningTeamId] = useState<number | null>(null);
   const [removingTeamId, setRemovingTeamId] = useState<number | null>(null);
   const [creatingGenderTeams, setCreatingGenderTeams] = useState(false);
+  const [assignStudentDialogOpen, setAssignStudentDialogOpen] = useState(false);
+  const [assignTargetStudentId, setAssignTargetStudentId] = useState<number | null>(null);
+  const [assignSelectedTeamId, setAssignSelectedTeamId] = useState<string>("");
 
   const { data: dashboard, isLoading: dashboardLoading } = useGetCoordinatorDashboard({
     query: {
@@ -126,6 +129,39 @@ export default function Coordinator() {
       toast({ title: "Error", description: error?.message || "Failed to create teams", variant: "destructive" });
     } finally {
       setCreatingGenderTeams(false);
+    }
+  };
+
+  const openAssignStudentDialog = (studentId: number) => {
+    setAssignTargetStudentId(studentId);
+    setAssignSelectedTeamId("");
+    setAssignStudentDialogOpen(true);
+  };
+
+  const handleAssignStudentToTeam = async (teamId: number) => {
+    if (!assignTargetStudentId) return;
+    try {
+      const response = await fetch(`/api/teams/${teamId}/add-member`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: assignTargetStudentId }) });
+      const result = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(result?.error || "Failed to add student to team");
+      toast({ title: "Student Assigned", description: "Student added to the selected team." });
+      setAssignStudentDialogOpen(false);
+      setAssignTargetStudentId(null);
+      await queryClient.invalidateQueries({ queryKey: getGetCoordinatorDashboardQueryKey() });
+    } catch (error: any) {
+      toast({ title: "Error", description: error?.message || "Failed to assign student.", variant: "destructive" });
+    }
+  };
+
+  const handleAddUserByGender = async (userId: number) => {
+    try {
+      const response = await fetch(`/api/teams/add-user-by-gender`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId }) });
+      const result = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(result?.error || "Failed to add user by gender");
+      toast({ title: "Assigned", description: result.message || "User assigned to gender team." });
+      await queryClient.invalidateQueries({ queryKey: getGetCoordinatorDashboardQueryKey() });
+    } catch (error: any) {
+      toast({ title: "Error", description: error?.message || "Failed to assign user.", variant: "destructive" });
     }
   };
 
@@ -422,7 +458,7 @@ export default function Coordinator() {
                         <p className="text-sm font-medium mb-2">Female Students</p>
                         <div className="space-y-3">
                           {studentsGrouped.female.map((student: any) => (
-                            <div key={student.id} className="flex items-center justify-between border rounded-lg p-4">
+                                    <div key={student.id} className="flex items-center justify-between border rounded-lg p-4">
                               <div className="flex items-center gap-3">
                                 <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">
                                   {student.name?.charAt(0).toUpperCase() || "?"}
@@ -437,7 +473,10 @@ export default function Coordinator() {
                                   </div>
                                 </div>
                               </div>
-                              <Badge variant="outline" className="text-xs">Looking for team</Badge>
+                              <div className="flex gap-2">
+                                <Button size="sm" variant="ghost" onClick={() => openAssignStudentDialog(student.id)}>Assign</Button>
+                                <Button size="sm" variant="outline" onClick={() => handleAddUserByGender(student.id)}>Add to gender team</Button>
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -464,7 +503,10 @@ export default function Coordinator() {
                                   </div>
                                 </div>
                               </div>
-                              <Badge variant="outline" className="text-xs">Looking for team</Badge>
+                              <div className="flex gap-2">
+                                <Button size="sm" variant="ghost" onClick={() => openAssignStudentDialog(student.id)}>Assign</Button>
+                                <Button size="sm" variant="outline" onClick={() => handleAddUserByGender(student.id)}>Add to gender team</Button>
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -491,7 +533,10 @@ export default function Coordinator() {
                                   </div>
                                 </div>
                               </div>
-                              <Badge variant="outline" className="text-xs">Looking for team</Badge>
+                              <div className="flex gap-2">
+                                <Button size="sm" variant="ghost" onClick={() => openAssignStudentDialog(student.id)}>Assign</Button>
+                                <Button size="sm" variant="outline" onClick={() => handleAddUserByGender(student.id)}>Add to gender team</Button>
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -503,6 +548,33 @@ export default function Coordinator() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        <Dialog open={assignStudentDialogOpen} onOpenChange={(open) => setAssignStudentDialogOpen(open)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Assign student to team</DialogTitle>
+              <DialogDescription>Select a team to add the student to.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <Select onValueChange={(v) => setAssignSelectedTeamId(v)} defaultValue={assignSelectedTeamId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a team" />
+                </SelectTrigger>
+                <SelectContent>
+                  {dashboard?.allTeamsList?.map((team: any) => (
+                    <SelectItem key={team.id} value={String(team.id)}>
+                      {team.name} ({team.memberCount} members)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setAssignStudentDialogOpen(false)}>Cancel</Button>
+                <Button onClick={() => handleAssignStudentToTeam(Number(assignSelectedTeamId))} disabled={!assignSelectedTeamId}>Assign</Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           <div className="lg:col-span-2">
