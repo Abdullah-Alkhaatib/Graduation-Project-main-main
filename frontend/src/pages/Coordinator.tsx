@@ -46,6 +46,15 @@ const assignSchema = z.object({
   supervisorId: z.string().min(1, "Please select a supervisor"),
 });
 
+function MiniStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-white/15 bg-white/10 p-4 text-white shadow-lg backdrop-blur-sm">
+      <p className="text-[11px] uppercase tracking-[0.2em] text-white/70">{label}</p>
+      <p className="mt-2 text-xl font-bold tracking-tight">{value}</p>
+    </div>
+  );
+}
+
 export default function Coordinator() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -233,13 +242,25 @@ export default function Coordinator() {
   return (
     <AppLayout title="Coordinator Panel">
       <div className="space-y-6">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">System Administration</h2>
-          <p className="text-muted-foreground">Manage teams, supervisors, and monitor system activity.</p>
+        <div className="hero-panel rounded-3xl p-6 md:p-8">
+          <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-2xl space-y-3">
+              <div className="section-label border-white/15 bg-white/10 text-white/90">Coordinator Workspace</div>
+              <div>
+                <h2 className="text-3xl font-black tracking-tight md:text-4xl">System Administration</h2>
+                <p className="mt-2 max-w-xl text-sm leading-6 text-white/85 md:text-base">Manage teams, supervisors, and monitor system activity from a cleaner command surface.</p>
+              </div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3 lg:w-136">
+              <MiniStat label="Teams" value={dashboard?.totalTeams?.toString() ?? "0"} />
+              <MiniStat label="Students" value={dashboard?.totalStudents?.toString() ?? "0"} />
+              <MiniStat label="Supervisors" value={dashboard?.totalSupervisors?.toString() ?? "0"} />
+            </div>
+          </div>
         </div>
 
         <Tabs defaultValue="unassigned" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-3 bg-background/80 p-1 shadow-sm">
             <TabsTrigger value="unassigned" className="gap-2">
               <Briefcase className="h-4 w-4" />
               <span className="hidden sm:inline">Unassigned Teams</span>

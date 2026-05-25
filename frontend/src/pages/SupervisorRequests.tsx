@@ -129,15 +129,18 @@ export default function SupervisorRequests() {
   return (
     <AppLayout title="Supervisor Requests">
       <div className="space-y-6 max-w-4xl mx-auto">
-        <div className="flex justify-between items-center">
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight">Supervisor Requests</h2>
-            <p className="text-muted-foreground">Manage your supervision requests.</p>
+        <div className="hero-panel rounded-3xl p-6 md:p-8">
+          <div className="relative z-10">
+            <div className="section-label border-white/15 bg-white/10 text-white/90">Requests</div>
+            <h2 className="mt-4 text-3xl font-black tracking-tight">Supervisor Requests</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-white/85">
+              Manage supervision requests with a simpler, more readable flow.
+            </p>
           </div>
         </div>
 
         {canRequestSupervisor && (
-          <Card>
+          <Card className="glass-card">
             <CardHeader>
               <CardTitle className="text-xl flex items-center gap-2">
                 <UserPlus className="h-5 w-5" /> Available Supervisors
@@ -154,7 +157,7 @@ export default function SupervisorRequests() {
               ) : (
                 <div className="grid gap-4 md:grid-cols-2">
                   {availableSupervisors.map((supervisor) => (
-                    <div key={supervisor.id} className="flex items-center justify-between rounded-lg border bg-card p-4">
+                    <div key={supervisor.id} className="flex items-center justify-between rounded-2xl border bg-card p-4 shadow-sm">
                       <div>
                         <p className="font-semibold">{supervisor.name}</p>
                         <p className="text-sm text-muted-foreground">{supervisor.email}</p>
@@ -176,7 +179,7 @@ export default function SupervisorRequests() {
         )}
 
         {!canRequestSupervisor && user?.role === "student" && myTeam && myTeam.leaderId !== user.id && (
-          <Card className="border-dashed">
+          <Card className="border-dashed glass-card">
             <CardContent className="p-6 text-center text-muted-foreground">
               Only the team leader can request a supervisor.
             </CardContent>
@@ -184,7 +187,7 @@ export default function SupervisorRequests() {
         )}
 
         {user?.role === "student" && myTeam && myTeam.supervisorId && (
-          <Card className="border-dashed">
+          <Card className="border-dashed glass-card">
             <CardContent className="p-6 text-center text-muted-foreground">
               Your team already has a supervisor assigned.
             </CardContent>
@@ -201,14 +204,14 @@ export default function SupervisorRequests() {
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Pending</h3>
               {pendingRequests.length === 0 ? (
-                <Card className="border-dashed">
+                <Card className="border-dashed glass-card">
                   <CardContent className="p-8 text-center text-muted-foreground">
                     No pending requests.
                   </CardContent>
                 </Card>
               ) : (
                 pendingRequests.map(request => (
-                  <Card key={request.id}>
+                  <Card key={request.id} className="glass-card">
                     <CardContent className="p-6">
                       <div className="flex flex-col md:flex-row justify-between gap-4">
                         <div>

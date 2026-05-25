@@ -102,10 +102,11 @@ export default function CoordinatorSupervisors() {
   return (
     <AppLayout title="Supervisor Management">
       <div className="space-y-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight">Supervisors</h2>
-            <p className="text-muted-foreground">See each supervisor and the teams assigned to them.</p>
+        <div className="page-heading">
+          <div className="space-y-2">
+            <div className="section-label">Supervisors</div>
+            <h2 className="text-3xl font-black tracking-tight">Supervisor Management</h2>
+            <p className="max-w-2xl text-sm text-muted-foreground">See each supervisor and the teams assigned to them in a cleaner layout.</p>
           </div>
           <div className="flex gap-2">
             <Badge variant="outline" className="gap-2 px-3 py-1.5">
@@ -122,7 +123,7 @@ export default function CoordinatorSupervisors() {
         {dashboardLoading || supervisorsLoading ? (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {[...Array(6)].map((_, index) => (
-              <Card key={index}>
+              <Card key={index} className="glass-card">
                 <CardHeader>
                   <Skeleton className="h-12 w-12 rounded-full" />
                   <Skeleton className="h-5 w-2/3" />
@@ -146,7 +147,7 @@ export default function CoordinatorSupervisors() {
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {supervisorsWithTeams.map(({ supervisor, assignedTeams, teamCount }) => (
-              <Card key={supervisor.id} className="flex flex-col">
+              <Card key={supervisor.id} className="glass-card flex flex-col">
                 <CardHeader className="pb-4">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-center gap-3">

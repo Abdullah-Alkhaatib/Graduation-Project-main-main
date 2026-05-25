@@ -6,7 +6,7 @@ import {
   useGetCoordinatorDashboard 
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Activity, Users, CheckSquare, Bell, Clock, Calendar, CheckCircle2, AlertCircle } from "lucide-react";
+import { Activity, Users, CheckSquare, Bell, Clock, Calendar, CheckCircle2, AlertCircle, Mail } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 
@@ -18,11 +18,14 @@ export default function Dashboard() {
   return (
     <AppLayout title="Dashboard">
       <div className="space-y-6">
-        <div className="page-heading">
-          <h2 className="text-2xl font-bold tracking-tight">Welcome back, {user.name}</h2>
-          <p className="mt-1 text-muted-foreground">
-            Here's what's happening with your graduation projects today.
-          </p>
+        <div className="hero-panel rounded-3xl p-6 md:p-8">
+          <div className="relative z-10">
+            <div className="section-label border-white/15 bg-white/10 text-white/90">Command Center</div>
+            <h2 className="mt-4 text-3xl font-black tracking-tight md:text-4xl">Welcome back, {user.name}</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-white/85 md:text-base">
+              A cleaner overview for students, supervisors, and coordinators, with the important actions surfaced first.
+            </p>
+          </div>
         </div>
 
         {user.role === "student" && <StudentDashboardView />}
@@ -70,7 +73,7 @@ function StudentDashboardView() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="dashboard-panel col-span-4">
+        <Card className="dashboard-panel glass-card col-span-4">
           <CardHeader>
             <CardTitle>My Recent Activity</CardTitle>
             <CardDescription>Latest updates related to your account</CardDescription>
@@ -80,21 +83,21 @@ function StudentDashboardView() {
           </CardContent>
         </Card>
         
-        <Card className="dashboard-panel col-span-3">
+        <Card className="dashboard-panel glass-card col-span-3">
           <CardHeader>
             <CardTitle>Quick Actions</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-4 rounded-md border border-primary/10 bg-white/70 p-3">
-                <MailIcon className="h-5 w-5 text-muted-foreground" />
+              <div className="flex items-center gap-4 rounded-2xl border border-primary/10 bg-white/80 p-4">
+                <Mail className="h-5 w-5 text-primary" />
                 <div className="flex-1 space-y-1">
                   <p className="text-sm font-medium leading-none">Invitations</p>
                   <p className="text-sm text-muted-foreground">{data.pendingInvitations} pending invitations</p>
                 </div>
               </div>
-              <div className="flex items-center gap-4 rounded-md border border-primary/10 bg-white/70 p-3">
-                <CheckCircle2 className="h-5 w-5 text-muted-foreground" />
+              <div className="flex items-center gap-4 rounded-2xl border border-primary/10 bg-white/80 p-4">
+                <CheckCircle2 className="h-5 w-5 text-primary" />
                 <div className="flex-1 space-y-1">
                   <p className="text-sm font-medium leading-none">Submissions</p>
                   <p className="text-sm text-muted-foreground">{data.submittedTasks} tasks submitted</p>
@@ -145,7 +148,7 @@ function SupervisorDashboardView() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="dashboard-panel col-span-4">
+        <Card className="dashboard-panel glass-card col-span-4">
           <CardHeader>
             <CardTitle>My Recent Activity</CardTitle>
             <CardDescription>Your latest actions and updates</CardDescription>
@@ -155,7 +158,7 @@ function SupervisorDashboardView() {
           </CardContent>
         </Card>
         
-        <Card className="dashboard-panel col-span-3">
+        <Card className="dashboard-panel glass-card col-span-3">
           <CardHeader>
             <CardTitle>Your Teams</CardTitle>
             <CardDescription>Quick overview</CardDescription>
@@ -222,7 +225,7 @@ function CoordinatorDashboardView() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="col-span-4">
+        <Card className="col-span-4 glass-card">
           <CardHeader>
             <CardTitle>System Activity</CardTitle>
             <CardDescription>Recent events across the platform</CardDescription>
@@ -346,7 +349,7 @@ function DashboardSkeleton() {
         ))}
       </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="col-span-4">
+          <Card className="col-span-4 glass-card">
           <CardHeader>
             <Skeleton className="h-5 w-36 mb-2" />
             <Skeleton className="h-4 w-48" />

@@ -178,16 +178,17 @@ export default function Students() {
     return (
       <AppLayout title="Students List">
         <div className="space-y-6">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h2 className="text-2xl font-bold tracking-tight">Students List</h2>
-              <p className="text-muted-foreground">Browse all registered students and jump to student details.</p>
+          <div className="page-heading">
+            <div className="space-y-2">
+              <div className="section-label">Registry</div>
+              <h2 className="text-3xl font-black tracking-tight">Students List</h2>
+              <p className="max-w-2xl text-sm text-muted-foreground">Browse all registered students and jump to student details.</p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <button
                 type="button"
                 onClick={exportToExcel}
-                className="inline-flex items-center justify-center rounded-lg border border-input bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+                className="inline-flex items-center justify-center rounded-xl border border-input bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
               >
                 Export to Excel
               </button>
@@ -226,7 +227,7 @@ export default function Students() {
             </div>
           </div>
 
-          <Card className="border-primary/10 shadow-sm overflow-x-auto">
+          <Card className="glass-card overflow-x-auto">
             <CardContent className="p-0">
               <table className="min-w-full divide-y divide-border text-sm">
                 <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
