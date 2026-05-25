@@ -69,7 +69,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!localUser && !isAuthPage) {
         setLocation("/login");
       } else if (localUser && isAuthPage) {
-        setLocation("/dashboard");
+        // prefer restoring last visited path when available (so refresh keeps user on same page)
+        try {
+          const saved = localStorage.getItem("lastPath")
+          if (saved && saved !== "/login" && saved !== "/register") {
+            setLocation(saved)
+          } else {
+            setLocation("/dashboard")
+          }
+        } catch {
+          setLocation("/dashboard")
+        }
       }
     }
   }, [localUser, isLoading, location, isAuthPage, setLocation]);

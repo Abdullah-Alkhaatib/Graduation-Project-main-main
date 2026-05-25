@@ -1,4 +1,5 @@
-import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
+import React from "react";
+import { Switch, Route, Router as WouterRouter, Redirect, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -84,6 +85,8 @@ function App() {
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
           <AuthProvider>
+            <PathSaver />
+            <PathRestorer />
             <Router />
             <Toaster />
           </AuthProvider>
@@ -94,3 +97,38 @@ function App() {
 }
 
 export default App;
+
+function PathSaver() {
+  const [location] = useLocation()
+  // save last path to localStorage (exclude auth pages)
+  const { user } = useAuth()
+  React.useEffect(() => {
+    try {
+      if (user && location && location !== "/login" && location !== "/register") {
+        localStorage.setItem("lastPath", location)
+      }
+    } catch {}
+  }, [location, user])
+  return null
+}
+
+function PathRestorer() {
+  const [location, setLocation] = useLocation()
+  const { user, isLoading } = useAuth()
+
+  React.useEffect(() => {
+    if (isLoading) return
+    try {
+      const saved = localStorage.getItem("lastPath")
+      const current = window.location.pathname
+      // restore saved path for authenticated users if it's different from the current
+      if (saved && current && saved !== current) {
+        // don't restore to auth pages
+        if (saved === "/login" || saved === "/register") return
+        if (user) setLocation(saved)
+      }
+    } catch {}
+  }, [isLoading, user, setLocation])
+
+  return null
+}
