@@ -53,6 +53,7 @@ export default function Coordinator() {
   
   const [assigningTeamId, setAssigningTeamId] = useState<number | null>(null);
   const [removingTeamId, setRemovingTeamId] = useState<number | null>(null);
+  const [creatingGenderTeams, setCreatingGenderTeams] = useState(false);
 
   const { data: dashboard, isLoading: dashboardLoading } = useGetCoordinatorDashboard({
     query: {
@@ -103,7 +104,30 @@ export default function Coordinator() {
     return map;
   }, [supervisorRequests]);
 
+  const studentsGrouped = useMemo(() => {
+    const list = dashboard?.studentsWithoutTeamsList ?? [];
+    const male = list.filter((s: any) => s.gender === "Male");
+    const female = list.filter((s: any) => s.gender === "Female");
+    const unknown = list.filter((s: any) => !s.gender);
+    return { male, female, unknown };
+  }, [dashboard?.studentsWithoutTeamsList]);
+
   const assignSupervisor = useCoordinatorAssignSupervisor();
+
+  const handleCreateGenderTeams = async () => {
+    setCreatingGenderTeams(true);
+    try {
+      const response = await fetch("/api/teams/bulk-create-by-gender", { method: "POST", credentials: "include" });
+      const result = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(result?.error || "Failed to create teams");
+      toast({ title: "Teams Created", description: `${result.createdCount} teams created` });
+      await queryClient.invalidateQueries({ queryKey: getGetCoordinatorDashboardQueryKey() });
+    } catch (error: any) {
+      toast({ title: "Error", description: error?.message || "Failed to create teams", variant: "destructive" });
+    } finally {
+      setCreatingGenderTeams(false);
+    }
+  };
 
   const handleRemoveSupervisor = async (teamId: number) => {
     setRemovingTeamId(teamId);
@@ -368,11 +392,18 @@ export default function Coordinator() {
 
           <TabsContent value="students" className="space-y-4 mt-6">
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <UserX className="h-5 w-5 text-primary" /> Students Without Team
-                </CardTitle>
-                <CardDescription>Students who have not joined any team yet.</CardDescription>
+              <CardHeader className="flex items-start justify-between gap-4">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <UserX className="h-5 w-5 text-primary" /> Students Without Team
+                  </CardTitle>
+                  <CardDescription>Students who have not joined any team yet.</CardDescription>
+                </div>
+                <div className="shrink-0">
+                  <Button size="sm" variant="outline" onClick={handleCreateGenderTeams} disabled={creatingGenderTeams}>
+                    {creatingGenderTeams ? "Creating..." : "Create teams by gender"}
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 {dashboardLoading ? (
@@ -385,28 +416,87 @@ export default function Coordinator() {
                     <p className="text-muted-foreground">All students have joined a team.</p>
                   </div>
                 ) : (
-                  <div className="space-y-3">
-                    {dashboard.studentsWithoutTeamsList.map(student => (
-                      <div key={student.id} className="flex items-center justify-between border rounded-lg p-4">
-                        <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">
-                            {student.name?.charAt(0).toUpperCase() || "?"}
-                          </div>
-                          <div>
-                              <p className="font-medium text-sm">{student.name || "Unknown"}</p>
-                              <p className="text-xs text-muted-foreground">{student.email}</p>
-                              {/* StudentId is stored on the profile; fetch profile badge */}
-                              <div className="mt-1">
-                                {/* lazy component to fetch profile by user id */}
-                                {/* eslint-disable-next-line @typescript-eslint/ban-ts-comment */}
-                                {/* @ts-ignore */}
-                                <StudentIdBadge userId={student.id} />
+                  <div className="space-y-4">
+                    {studentsGrouped.female.length > 0 && (
+                      <div>
+                        <p className="text-sm font-medium mb-2">Female Students</p>
+                        <div className="space-y-3">
+                          {studentsGrouped.female.map((student: any) => (
+                            <div key={student.id} className="flex items-center justify-between border rounded-lg p-4">
+                              <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">
+                                  {student.name?.charAt(0).toUpperCase() || "?"}
+                                </div>
+                                <div>
+                                  <p className="font-medium text-sm">{student.name || "Unknown"}</p>
+                                  <p className="text-xs text-muted-foreground">{student.email}</p>
+                                  <div className="mt-1">
+                                    {/* eslint-disable-next-line @typescript-eslint/ban-ts-comment */}
+                                    {/* @ts-ignore */}
+                                    <StudentIdBadge userId={student.id} />
+                                  </div>
+                                </div>
                               </div>
-                          </div>
+                              <Badge variant="outline" className="text-xs">Looking for team</Badge>
+                            </div>
+                          ))}
                         </div>
-                        <Badge variant="outline" className="text-xs">Looking for team</Badge>
                       </div>
-                    ))}
+                    )}
+
+                    {studentsGrouped.male.length > 0 && (
+                      <div>
+                        <p className="text-sm font-medium mb-2">Male Students</p>
+                        <div className="space-y-3">
+                          {studentsGrouped.male.map((student: any) => (
+                            <div key={student.id} className="flex items-center justify-between border rounded-lg p-4">
+                              <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">
+                                  {student.name?.charAt(0).toUpperCase() || "?"}
+                                </div>
+                                <div>
+                                  <p className="font-medium text-sm">{student.name || "Unknown"}</p>
+                                  <p className="text-xs text-muted-foreground">{student.email}</p>
+                                  <div className="mt-1">
+                                    {/* eslint-disable-next-line @typescript-eslint/ban-ts-comment */}
+                                    {/* @ts-ignore */}
+                                    <StudentIdBadge userId={student.id} />
+                                  </div>
+                                </div>
+                              </div>
+                              <Badge variant="outline" className="text-xs">Looking for team</Badge>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {studentsGrouped.unknown.length > 0 && (
+                      <div>
+                        <p className="text-sm font-medium mb-2">Unspecified Gender</p>
+                        <div className="space-y-3">
+                          {studentsGrouped.unknown.map((student: any) => (
+                            <div key={student.id} className="flex items-center justify-between border rounded-lg p-4">
+                              <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">
+                                  {student.name?.charAt(0).toUpperCase() || "?"}
+                                </div>
+                                <div>
+                                  <p className="font-medium text-sm">{student.name || "Unknown"}</p>
+                                  <p className="text-xs text-muted-foreground">{student.email}</p>
+                                  <div className="mt-1">
+                                    {/* eslint-disable-next-line @typescript-eslint/ban-ts-comment */}
+                                    {/* @ts-ignore */}
+                                    <StudentIdBadge userId={student.id} />
+                                  </div>
+                                </div>
+                              </div>
+                              <Badge variant="outline" className="text-xs">Looking for team</Badge>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </CardContent>

@@ -80,6 +80,54 @@ router.post("/teams", requireAuth, async (req, res): Promise<void> => {
   res.status(201).json(await formatTeam(team));
 });
 
+// Coordinator: bulk create teams grouping students by gender
+router.post("/teams/bulk-create-by-gender", requireAuth, async (req, res): Promise<void> => {
+  if (req.user!.role !== "coordinator") { res.status(403).json({ error: "Only coordinators can perform this action" }); return; }
+
+  // fetch all students
+  const allStudents = await db.select().from(usersTable).where(eq(usersTable.role, "student"));
+  const studentsWithTeams = await db.select({ userId: teamMembersTable.userId }).from(teamMembersTable);
+  const studentsWithTeamsIds = new Set(studentsWithTeams.map(st => st.userId));
+  const studentsWithoutTeams = allStudents.filter(s => !studentsWithTeamsIds.has(s.id));
+
+  // group by gender
+  const groups: Record<string, typeof studentsWithoutTeams> = { Female: [], Male: [], Unknown: [] };
+  for (const s of studentsWithoutTeams) {
+    if (s.gender === "Female") groups.Female.push(s);
+    else if (s.gender === "Male") groups.Male.push(s);
+    else groups.Unknown.push(s);
+  }
+
+  const created: any[] = [];
+
+  function chunkArray<T>(arr: T[], size: number) {
+    const res: T[][] = [];
+    for (let i = 0; i < arr.length; i += size) res.push(arr.slice(i, i + size));
+    return res;
+  }
+
+  for (const [gender, list] of Object.entries(groups)) {
+    const chunks = chunkArray(list, MAX_TEAM_MEMBERS);
+    let idx = 1;
+    for (const chunk of chunks) {
+      if (chunk.length === 0) continue;
+      const leader = chunk[0];
+      const teamName = `Auto ${gender} Team ${idx}`;
+      const [team] = await db.insert(teamsTable).values({ name: teamName, leaderId: leader.id }).returning();
+      for (let i = 0; i < chunk.length; i++) {
+        const member = chunk[i];
+        const role = i === 0 ? "leader" : "member";
+        await db.insert(teamMembersTable).values({ teamId: team.id, userId: member.id, role });
+      }
+      await logActivity("team_created", `Team "${teamName}" created by coordinator`, req.user!.id, team.id);
+      created.push({ teamId: team.id, name: teamName, gender, members: chunk.map((m: any) => m.id) });
+      idx++;
+    }
+  }
+
+  res.status(201).json({ createdCount: created.length, created });
+});
+
 router.get("/teams/my", requireAuth, async (req, res): Promise<void> => {
   const [membership] = await db.select().from(teamMembersTable).where(eq(teamMembersTable.userId, req.user!.id));
   if (!membership) { res.status(404).json({ error: "Not in a team" }); return; }
