@@ -26,6 +26,7 @@ export const RegisterBody = zod.object({
     .string()
     .nullish()
     .describe("Unique 6-character ID for students (required for student role)"),
+  gender: zod.enum(["Male", "Female"]).nullish(),
 });
 
 /**

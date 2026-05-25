@@ -14,4 +14,5 @@ export interface RegisterBody {
   role: RegisterBodyRole;
   /** Unique 6-character ID for students (required for student role) */
   studentId?: string | null;
+  gender?: "Male" | "Female" | null;
 }

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRegister, RegisterBodyRole } from "@workspace/api-client-react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -26,6 +26,7 @@ const registerSchema = z
     password: z.string().min(6, "Password must be at least 6 characters"),
     role: z.enum([RegisterBodyRole.student, RegisterBodyRole.supervisor, RegisterBodyRole.coordinator]),
     studentId: z.string().optional().nullable(),
+    gender: z.enum(["Male", "Female"]).nullish(),
   })
   .superRefine((data, ctx) => {
     if (data.role === RegisterBodyRole.student) {
@@ -36,6 +37,9 @@ const registerSchema = z
       }
       if (!/^[0-9A-Z]{6}$/i.test(sid)) {
         ctx.addIssue({ path: ["studentId"], code: z.ZodIssueCode.custom, message: "Student ID must be 6 characters (A-Z, 0-9)" });
+      }
+      if (!data.gender) {
+        ctx.addIssue({ path: ["gender"], code: z.ZodIssueCode.custom, message: "Gender is required for students" });
       }
     }
   });
@@ -56,8 +60,17 @@ export default function Register() {
       password: "",
       role: RegisterBodyRole.student,
       studentId: "",
+      gender: null,
     },
   });
+
+  const selectedRole = form.watch("role");
+
+  useEffect(() => {
+    if (selectedRole !== RegisterBodyRole.student) {
+      form.setValue("gender", null, { shouldDirty: true, shouldValidate: true });
+    }
+  }, [form, selectedRole]);
 
   const onSubmit = async (data: RegisterFormValues) => {
     setError(null);
@@ -72,8 +85,16 @@ export default function Register() {
           setError("Student ID must be 6 characters (A-Z, 0-9)");
           return;
         }
+        if (!data.gender) {
+          setError("Gender is required for students");
+          return;
+        }
       }
-      const payload = { ...data, studentId: data.studentId?.trim().toUpperCase() || null };
+      const payload = {
+        ...data,
+        studentId: data.studentId?.trim().toUpperCase() || null,
+        gender: data.role === RegisterBodyRole.student ? data.gender : null,
+      };
       await registerMutation.mutateAsync({ data: payload });
       setLocation("/login");
     } catch (err: any) {
@@ -82,9 +103,9 @@ export default function Register() {
   };
 
   return (
-    <div className="auth-shell flex h-screen w-full items-center justify-center overflow-hidden p-3 sm:p-4">
-      <section className="flex w-full items-center justify-center">
-        <div className="w-full max-w-2xl space-y-4">
+    <div className="auth-shell min-h-screen w-full overflow-y-auto px-3 py-6 sm:px-4 sm:py-8">
+      <section className="flex min-h-[calc(100vh-3rem)] w-full items-start justify-center sm:items-center">
+        <div className="w-full max-w-2xl space-y-4 py-2">
           <div className="flex flex-col items-center justify-center text-center">
             <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
               <Briefcase className="h-5 w-5" />
@@ -169,7 +190,7 @@ export default function Register() {
                         </FormItem>
                       )}
                     />
-                    {form.watch("role") === RegisterBodyRole.student && (
+                    {selectedRole === RegisterBodyRole.student && (
                       <FormField
                         control={form.control}
                         name="studentId"
@@ -188,6 +209,38 @@ export default function Register() {
                                   field.onChange(alnum);
                                 }}
                               />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+                    {selectedRole === RegisterBodyRole.student && (
+                      <FormField
+                        control={form.control}
+                        name="gender"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Gender</FormLabel>
+                            <FormControl>
+                              <RadioGroup
+                                onValueChange={field.onChange}
+                                value={field.value ?? ""}
+                                className="flex flex-row items-center gap-6"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <RadioGroupItem id="gender-male" value="Male" />
+                                  <FormLabel htmlFor="gender-male" className="cursor-pointer font-normal capitalize text-foreground">
+                                    male
+                                  </FormLabel>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <RadioGroupItem id="gender-female" value="Female" />
+                                  <FormLabel htmlFor="gender-female" className="cursor-pointer font-normal capitalize text-foreground">
+                                    female
+                                  </FormLabel>
+                                </div>
+                              </RadioGroup>
                             </FormControl>
                             <FormMessage />
                           </FormItem>

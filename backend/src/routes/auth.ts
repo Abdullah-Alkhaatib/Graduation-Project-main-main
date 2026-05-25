@@ -10,7 +10,7 @@ import { logActivity } from "../lib/notify";
 const router: IRouter = Router();
 
 function formatUser(user: typeof usersTable.$inferSelect) {
-  return { id: user.id, name: user.name, email: user.email, studentId: user.studentId ?? null, role: user.role, officeHours: user.officeHours ?? null, createdAt: user.createdAt };
+  return { id: user.id, name: user.name, email: user.email, studentId: user.studentId ?? null, gender: user.gender ?? null, role: user.role, officeHours: user.officeHours ?? null, createdAt: user.createdAt };
 }
 
 function generateStudentId(): string {
@@ -28,21 +28,28 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const { name, email, password, role, studentId } = parsed.data;
+  const { name, email, password, role, studentId, gender } = parsed.data;
 
-  if (role === "student" && studentId) {
-    // Check if this student ID is already registered
-    // Validate studentId format (6 uppercase alphanumeric)
-    const normalized = typeof studentId === "string" ? studentId.trim().toUpperCase() : studentId;
-    if (!/^[0-9A-Z]{6}$/.test(normalized)) {
-      res.status(400).json({ error: "Student ID must be 6 characters (A-Z, 0-9)" });
+  if (role === "student") {
+    if (!gender) {
+      res.status(400).json({ error: "Gender is required for students" });
       return;
     }
 
-    const [existing] = await db.select().from(studentProfilesTable).where(eq(studentProfilesTable.studentId, normalized));
-    if (existing) {
-      res.status(400).json({ error: "This student ID is already registered" });
-      return;
+    if (studentId) {
+      // Check if this student ID is already registered
+      // Validate studentId format (6 uppercase alphanumeric)
+      const normalized = typeof studentId === "string" ? studentId.trim().toUpperCase() : studentId;
+      if (!/^[0-9A-Z]{6}$/.test(normalized)) {
+        res.status(400).json({ error: "Student ID must be 6 characters (A-Z, 0-9)" });
+        return;
+      }
+
+      const [existing] = await db.select().from(studentProfilesTable).where(eq(studentProfilesTable.studentId, normalized));
+      if (existing) {
+        res.status(400).json({ error: "This student ID is already registered" });
+        return;
+      }
     }
   }
 
@@ -54,11 +61,12 @@ router.post("/auth/register", async (req, res): Promise<void> => {
 
   const passwordHash = await bcrypt.hash(password, 12);
   // include studentId on users table for student role
-  const userInsert: any = { name, email, passwordHash, role };
+  const userInsert: any = { name, email, passwordHash, role, gender: null };
   let finalStudentId: string | null = null;
   if (role === "student") {
     finalStudentId = (studentId && studentId.trim()) ? studentId.trim().toUpperCase() : generateStudentId();
     userInsert.studentId = finalStudentId;
+    userInsert.gender = gender;
   } else {
     userInsert.studentId = null;
   }

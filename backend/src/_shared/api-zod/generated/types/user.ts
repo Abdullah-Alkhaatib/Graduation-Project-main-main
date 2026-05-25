@@ -12,6 +12,7 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
+  gender?: "Male" | "Female" | null;
   officeHours?: string | null;
   createdAt: Date;
 }

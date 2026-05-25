@@ -6,6 +6,7 @@ export type User = {
   name: string;
   email: string;
   studentId?: string | null;
+  gender?: "Male" | "Female" | null;
   passwordHash: string;
   role: "student" | "supervisor" | "coordinator";
   officeHours: string | null;
@@ -15,6 +16,7 @@ export type User = {
 export const usersTable = defineTable<User>("users", [
   "id",
   "studentId",
+  "gender",
   "name",
   "email",
   "passwordHash",
@@ -27,6 +29,7 @@ export const insertUserSchema = z.object({
   name: z.string(),
   email: z.string(),
   studentId: z.string().optional().nullable(),
+  gender: z.enum(["Male", "Female"]).nullish(),
   passwordHash: z.string(),
   role: z.enum(["student", "supervisor", "coordinator"]),
 });

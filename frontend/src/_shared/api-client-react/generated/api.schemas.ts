@@ -26,6 +26,7 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
+  gender?: "Male" | "Female" | null;
   officeHours?: string | null;
   createdAt: string;
 }
@@ -51,6 +52,7 @@ export interface RegisterBody {
   role: RegisterBodyRole;
   /** Unique 6-character ID for students (required for student role) */
   studentId?: string | null;
+  gender?: "Male" | "Female" | null;
 }
 
 export interface LoginBody {
