@@ -6,11 +6,18 @@
     "preinstall": "node -e \"const fs=require('fs'); ['package-lock.json','yarn.lock'].forEach((f)=>{ try{ fs.rmSync(f,{force:true}); }catch{} }); const ua=process.env.npm_config_user_agent||''; if(!ua.startsWith('pnpm/')){ console.error('Use pnpm instead'); process.exit(1); }\"",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
-    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./backend\" --filter \"./frontend\" --if-present run typecheck"
+    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./backend\" --filter \"./frontend\" --if-present run typecheck",
+    "test": "pnpm exec jest --passWithNoTests"
   },
   "private": true,
   "devDependencies": {
     "typescript": "~5.9.2",
-    "prettier": "^3.8.1"
+    "prettier": "^3.8.1",
+    "@types/jest": "^29.5.4",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "ts-jest": "^29.1.1"
+    ,
+    "supertest": "^6.3.3"
   }
 }

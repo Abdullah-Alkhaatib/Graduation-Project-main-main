@@ -9,11 +9,11 @@ import { logActivity } from "../lib/notify";
 
 const router: IRouter = Router();
 
-function formatUser(user: typeof usersTable.$inferSelect) {
+export function formatUser(user: typeof usersTable.$inferSelect) {
   return { id: user.id, name: user.name, email: user.email, studentId: user.studentId ?? null, gender: user.gender ?? null, role: user.role, officeHours: user.officeHours ?? null, createdAt: user.createdAt };
 }
 
-function generateStudentId(): string {
+export function generateStudentId(): string {
   const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
   let id = "";
   for (let i = 0; i < 6; i++) {
