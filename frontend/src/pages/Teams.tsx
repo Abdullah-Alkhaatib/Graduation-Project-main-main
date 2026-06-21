@@ -707,7 +707,7 @@ export default function Teams() {
                     <FormItem>
                       <FormLabel>Team / Ad Title</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g. Code Ninjas" {...field} />
+                        <Input placeholder="" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -720,7 +720,7 @@ export default function Teams() {
                     <FormItem>
                       <FormLabel>Project Title</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g. AI-powered Grading System, needs React and UI/UX" {...field} value={field.value || ''} />
+                        <Input placeholder="" {...field} value={field.value || ''} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

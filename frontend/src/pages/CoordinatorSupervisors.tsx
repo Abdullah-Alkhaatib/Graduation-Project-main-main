@@ -186,13 +186,13 @@ export default function CoordinatorSupervisors() {
                       <span className="text-muted-foreground">Role</span>
                       <span className="font-medium capitalize">{supervisor.role}</span>
                     </div>
-                    <div className="mt-2 flex items-center justify-between">
+                    {/* <div className="mt-2 flex items-center justify-between">
                       <span className="text-muted-foreground">Status</span>
                       <span className="inline-flex items-center gap-1 font-medium text-emerald-600">
                         <UserCheck className="h-3.5 w-3.5" />
                         Active
                       </span>
-                    </div>
+                    </div> */}
                   </div>
 
                   <div>

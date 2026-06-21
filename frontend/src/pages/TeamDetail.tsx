@@ -398,7 +398,7 @@ export default function TeamDetail() {
                                         {supervisors?.length ? (
                                           supervisors.map((sup) => (
                                             <SelectItem key={sup.id} value={sup.id.toString()}>
-                                              {sup.name} • {sup.email}
+                                              {sup.name}
                                             </SelectItem>
                                           ))
                                         ) : (

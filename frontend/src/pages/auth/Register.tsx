@@ -199,7 +199,7 @@ export default function Register() {
                             <FormLabel>Student ID</FormLabel>
                             <FormControl>
                               <Input
-                                placeholder="e.g. A12B3C"
+                                placeholder="e.g. 123456"
                                 maxLength={6}
                                 autoCapitalize="characters"
                                 {...field}
