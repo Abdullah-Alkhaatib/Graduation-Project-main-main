@@ -35,7 +35,7 @@ const submitSchema = z.object({
 
 const reviewSchema = z.object({
   status: z.enum(["approved", "rejected"]),
-  feedback: z.string().min(2, "Feedback is required"),
+  feedback: z.string().optional(),
 });
 
 export default function TaskDetail() {

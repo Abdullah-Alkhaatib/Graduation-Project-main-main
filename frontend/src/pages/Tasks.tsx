@@ -34,7 +34,13 @@ const createTaskSchema = z.object({
   teamId: z.string().min(1, "Please select a team"),
   title: z.string().min(2, "Title is required"),
   description: z.string().optional(),
-  deadline: z.string().optional(),
+  deadline: z.string().optional().refine(
+    (deadline) => {
+      if (!deadline) return true;
+      return new Date(deadline) > new Date();
+    },
+    "Deadline must be in the future"
+  ),
   phase: z.enum([CreateTaskBodyPhase.proposal, CreateTaskBodyPhase.progress, CreateTaskBodyPhase.final]),
 });
 
@@ -180,7 +186,7 @@ export default function Tasks() {
                         <FormItem>
                           <FormLabel>Task Title</FormLabel>
                           <FormControl>
-                            <Input placeholder="e.g. Initial Proposal Draft" {...field} />
+                            <Input placeholder="" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>

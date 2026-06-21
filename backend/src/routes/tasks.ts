@@ -45,6 +45,15 @@ router.post("/tasks", requireAuth, requireRole("supervisor", "coordinator"), asy
   const { teamId, title, description, deadline, phase } = req.body;
   if (!teamId || !title || !phase) { res.status(400).json({ error: "teamId, title, and phase required" }); return; }
 
+  if (deadline) {
+    const deadlineDate = new Date(deadline);
+    const now = new Date();
+    if (deadlineDate <= now) {
+      res.status(400).json({ error: "Deadline must be in the future" });
+      return;
+    }
+  }
+
   if (req.user!.role === "supervisor") {
     const assignedTeams = await db.select().from(teamsTable).where(eq(teamsTable.supervisorId, req.user!.id));
     if (assignedTeams.length === 0) {
