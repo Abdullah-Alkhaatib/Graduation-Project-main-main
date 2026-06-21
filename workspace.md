@@ -53,6 +53,14 @@ A full-stack web application for managing graduation projects at universities.
 - invitations, supervisor_requests, project_phases
 - tasks, submissions, meetings, notifications, activity_logs
 
+## Testing
+
+Test commands and guidance are available in [TESTING.md](TESTING.md).
+
+- `pnpm test` — run all Jest tests in the workspace
+- `pnpm exec jest --selectProjects backend` — run backend test suite only
+- `pnpm exec jest backend/src/routes/tasks.test.ts --runInBand` — run one focused backend test file
+
 ## Key Commands
 
 - `pnpm run typecheck` — full typecheck across all packages

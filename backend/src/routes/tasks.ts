@@ -110,13 +110,21 @@ router.get("/tasks/:id", requireAuth, async (req, res): Promise<void> => {
   res.json(await formatTask(task));
 });
 
-router.put("/tasks/:id", requireAuth, async (req, res): Promise<void> => {
+router.put("/tasks/:id", requireAuth, requireRole("supervisor", "coordinator"), async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const [task] = await db.select().from(tasksTable).where(eq(tasksTable.id, id));
   if (!task) { res.status(404).json({ error: "Task not found" }); return; }
+
+  if (req.user!.role === "supervisor") {
+    const [team] = await db.select().from(teamsTable).where(eq(teamsTable.id, task.teamId));
+    if (!team || team.supervisorId !== req.user!.id) {
+      res.status(403).json({ error: "You can only update tasks for teams assigned to you" });
+      return;
+    }
+  }
 
   const { title, description, deadline, status } = req.body;
   const [updated] = await db.update(tasksTable).set({ title, description, deadline: deadline ? new Date(deadline) : task.deadline, status }).where(eq(tasksTable.id, id)).returning();
