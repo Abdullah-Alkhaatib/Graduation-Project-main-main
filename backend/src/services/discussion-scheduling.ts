@@ -329,3 +329,162 @@ export async function buildDiscussionSchedule(
     },
   };
 }
+
+// ============ Database Operations ============
+
+import { db, teamsTable, usersTable, teamMembersTable, discussionSchedulesTable, discussionSettingsTable } from "@workspace/db";
+import { eq } from "@workspace/db";
+
+export type DiscussionScheduleWithDetails = DiscussionScheduleDraft & {
+  team: typeof teamsTable.$inferSelect | null;
+  supervisor: typeof usersTable.$inferSelect | null;
+  examiner1: typeof usersTable.$inferSelect | null;
+  examiner2: typeof usersTable.$inferSelect | null;
+};
+
+/**
+ * Get all discussion schedules with related data
+ */
+export async function getAllDiscussionSchedules(): Promise<DiscussionScheduleWithDetails[]> {
+  const schedules = await db.select().from(discussionSchedulesTable);
+  const teams = await db.select().from(teamsTable);
+  const users = await db.select().from(usersTable);
+
+  return schedules
+    .map((schedule) => ({
+      ...schedule,
+      team: teams.find((teamItem) => teamItem.id === schedule.teamId) ?? null,
+      supervisor: users.find((user) => user.id === schedule.supervisorId) ?? null,
+      examiner1: users.find((user) => user.id === schedule.examiner1Id) ?? null,
+      examiner2: users.find((user) => user.id === schedule.examiner2Id) ?? null,
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime) || a.room.localeCompare(b.room));
+}
+
+/**
+ * Filter schedules by user role and permissions
+ */
+export async function getFilteredDiscussionSchedules(
+  userId: number,
+  userRole: string,
+): Promise<DiscussionScheduleWithDetails[]> {
+  const allSchedules = await getAllDiscussionSchedules();
+
+  if (userRole === "supervisor") {
+    return allSchedules.filter(
+      (schedule) =>
+        schedule.supervisorId === userId || schedule.examiner1Id === userId || schedule.examiner2Id === userId,
+    );
+  }
+
+  if (userRole === "student") {
+    const teamMemberships = await db.select().from(teamMembersTable).where(eq(teamMembersTable.userId, userId));
+    const teamIds = new Set(teamMemberships.map((membership) => membership.teamId));
+    return allSchedules.filter((schedule) => schedule.team && teamIds.has(schedule.team.id));
+  }
+
+  return allSchedules; // Coordinators see all
+}
+
+/**
+ * Get the latest discussion settings
+ */
+export async function getLatestDiscussionSettings() {
+  const settingsList = await db.select().from(discussionSettingsTable);
+  return settingsList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0] ?? null;
+}
+
+/**
+ * Save new discussion schedule to database
+ */
+export async function saveDiscussionSchedule(
+  schedules: DiscussionScheduleDraft[],
+  settings: DiscussionSettingsInput,
+): Promise<void> {
+  // Clear existing schedules and settings
+  const existingSchedules = await db.select().from(discussionSchedulesTable);
+  await Promise.all(existingSchedules.map((schedule) => db.delete(discussionSchedulesTable).where(eq(discussionSchedulesTable.id, schedule.id))));
+
+  const existingSettings = await db.select().from(discussionSettingsTable);
+  await Promise.all(existingSettings.map((setting) => db.delete(discussionSettingsTable).where(eq(discussionSettingsTable.id, setting.id))));
+
+  // Insert new schedules and settings
+  await db.insert(discussionSchedulesTable).values(schedules).returning();
+  await db.insert(discussionSettingsTable).values({
+    startDate: settings.startDate,
+    endDate: settings.endDate,
+    workStartHour: settings.workStartHour,
+    workEndHour: settings.workEndHour,
+    discussionDuration: settings.discussionDuration,
+    breakDuration: settings.breakDuration,
+    roomsCount: settings.roomsCount,
+    includedTeamIds: settings.includedTeamIds ?? null,
+  });
+}
+
+/**
+ * Check if there's a time/room/instructor conflict
+ */
+export function checkScheduleConflicts(
+  newSchedule: {
+    date: string;
+    startTime: string;
+    endTime: string;
+    room: string;
+    supervisorId: number;
+    examiner1Id: number;
+    examiner2Id: number;
+  },
+  existingSchedules: DiscussionScheduleWithDetails[],
+  excludeScheduleId?: number,
+): boolean {
+  return existingSchedules.some((schedule) => {
+    if (excludeScheduleId && schedule.id === excludeScheduleId) {
+      return false;
+    }
+
+    // Check room conflict
+    if (schedule.room === newSchedule.room && timeRangeOverlaps(newSchedule.date, newSchedule.startTime, newSchedule.endTime, schedule.date, schedule.startTime, schedule.endTime)) {
+      return true;
+    }
+
+    // Check instructor conflict
+    const newInstructors = [newSchedule.supervisorId, newSchedule.examiner1Id, newSchedule.examiner2Id];
+    const existingInstructors = [schedule.supervisorId, schedule.examiner1Id, schedule.examiner2Id];
+    if (timeRangeOverlaps(newSchedule.date, newSchedule.startTime, newSchedule.endTime, schedule.date, schedule.startTime, schedule.endTime)) {
+      if (newInstructors.some((instructor) => existingInstructors.includes(instructor))) {
+        return true;
+      }
+    }
+
+    return false;
+  });
+}
+
+/**
+ * Update a discussion schedule
+ */
+export async function updateDiscussionSchedule(
+  scheduleId: number,
+  updates: Partial<Omit<DiscussionScheduleDraft, "id">>,
+): Promise<DiscussionScheduleWithDetails | null> {
+  const [updated] = await db
+    .update(discussionSchedulesTable)
+    .set(updates)
+    .where(eq(discussionSchedulesTable.id, scheduleId))
+    .returning();
+
+  if (!updated) {
+    return null;
+  }
+
+  const allSchedules = await getAllDiscussionSchedules();
+  return allSchedules.find((s) => s.id === scheduleId) ?? null;
+}
+
+/**
+ * Delete a discussion schedule
+ */
+export async function deleteDiscussionSchedule(scheduleId: number): Promise<void> {
+  await db.delete(discussionSchedulesTable).where(eq(discussionSchedulesTable.id, scheduleId));
+}

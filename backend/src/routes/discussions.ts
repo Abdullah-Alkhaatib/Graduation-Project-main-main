@@ -1,13 +1,25 @@
 import { Router } from "express";
 import type { IRouter } from "express";
 import { z } from "zod/v4";
-import { db, usersTable, teamsTable, teamMembersTable, discussionSchedulesTable, discussionSettingsTable } from "@workspace/db";
+import { db, usersTable, teamsTable } from "@workspace/db";
 import { eq } from "@workspace/db";
 import { requireAuth, requireRole } from "../lib/session";
 import { logActivity } from "../lib/notify";
-import { buildDiscussionSchedule, type DiscussionSettingsInput } from "../services/discussion-scheduling";
+import {
+  buildDiscussionSchedule,
+  type DiscussionSettingsInput,
+  getAllDiscussionSchedules,
+  getFilteredDiscussionSchedules,
+  getLatestDiscussionSettings,
+  saveDiscussionSchedule,
+  checkScheduleConflicts,
+  updateDiscussionSchedule,
+  deleteDiscussionSchedule,
+} from "../services/discussion-scheduling";
 
 const router: IRouter = Router();
+
+// ============ Validation Schemas ============
 
 const generateRequestSchema = z.object({
   startDate: z.string().min(1),
@@ -31,122 +43,74 @@ const updateScheduleSchema = z.object({
   status: z.enum(["scheduled", "cancelled", "completed"]).optional(),
 });
 
-function parseTimeToMinutes(value: string) {
-  const [hours, minutes] = value.split(":").map(Number);
-  return hours * 60 + minutes;
-}
+// ============ Routes ============
 
-function timeRangeOverlaps(
-  dateA: string,
-  startA: string,
-  endA: string,
-  dateB: string,
-  startB: string,
-  endB: string,
-) {
-  if (dateA !== dateB) return false;
-  const aStart = parseTimeToMinutes(startA);
-  const aEnd = parseTimeToMinutes(endA);
-  const bStart = parseTimeToMinutes(startB);
-  const bEnd = parseTimeToMinutes(endB);
-  return aStart < bEnd && bStart < aEnd;
-}
-
-async function buildScheduleResponse() {
-  const schedules = await db.select().from(discussionSchedulesTable);
-  const teams = await db.select().from(teamsTable);
-  const users = await db.select().from(usersTable);
-  const settingsList = await db.select().from(discussionSettingsTable);
-  const settings = settingsList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0] ?? null;
-
-  return schedules.map((schedule) => {
-    const team = teams.find((teamItem) => teamItem.id === schedule.teamId);
-    const supervisor = users.find((user) => user.id === schedule.supervisorId) ?? null;
-    const examiner1 = users.find((user) => user.id === schedule.examiner1Id) ?? null;
-    const examiner2 = users.find((user) => user.id === schedule.examiner2Id) ?? null;
-    return {
-      ...schedule,
-      team,
-      supervisor,
-      examiner1,
-      examiner2,
-    };
-  }).sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime) || a.room.localeCompare(b.room));
-}
-
+/**
+ * GET /discussions
+ * Get filtered discussion schedules based on user role
+ */
 router.get("/discussions", requireAuth, async (req, res): Promise<void> => {
   try {
-    const allSchedules = await buildScheduleResponse();
-    const userId = req.user!.id;
-    let filtered = allSchedules;
-
-    if (req.user!.role === "supervisor") {
-      filtered = allSchedules.filter((schedule) =>
-        schedule.supervisorId === userId || schedule.examiner1Id === userId || schedule.examiner2Id === userId,
-      );
-    }
-
-    if (req.user!.role === "student") {
-      const teamMemberships = await db.select().from(teamMembersTable).where(eq(teamMembersTable.userId, userId));
-      const teamIds = new Set(teamMemberships.map((membership) => membership.teamId));
-      filtered = allSchedules.filter((schedule) => schedule.team && teamIds.has(schedule.team.id));
-    }
-
-    const settingsList = await db.select().from(discussionSettingsTable);
-    const settings = settingsList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0] ?? null;
+    const filtered = await getFilteredDiscussionSchedules(req.user!.id, req.user!.role);
+    const settings = await getLatestDiscussionSettings();
 
     res.json({ schedules: filtered, settings });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to load discussion schedules" });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || "Failed to load discussion schedules" });
   }
 });
 
+/**
+ * POST /discussions/generate
+ * Generate a new discussion schedule based on settings and constraints
+ */
 router.post("/discussions/generate", requireAuth, requireRole("coordinator"), async (req, res): Promise<void> => {
   try {
     const parsed = generateRequestSchema.parse(req.body);
-    const allTeams = await db.select().from(teamsTable);
-    const teamsWithSupervisor = await Promise.all(allTeams.map(async (team) => {
-      const supervisorId = team.supervisorId;
-      const supervisorName = supervisorId ? (await db.select().from(usersTable).where(eq(usersTable.id, supervisorId))).at(0)?.name ?? "" : "";
-      const supervisorEmail = supervisorId ? (await db.select().from(usersTable).where(eq(usersTable.id, supervisorId))).at(0)?.email ?? "" : "";
-      return { ...team, supervisorId, supervisorName, supervisorEmail };
-    }));
 
-    const allSupervisors = await db.select().from(usersTable).then((users) => users.filter((user) => user.role === "supervisor"));
+    // Load all teams with supervisor information
+    const allTeams = await db.select().from(teamsTable);
+    const teamsWithSupervisor = await Promise.all(
+      allTeams.map(async (team) => {
+        const [supervisor] = team.supervisorId
+          ? await db.select().from(usersTable).where(eq(usersTable.id, team.supervisorId))
+          : [null];
+        return {
+          ...team,
+          supervisorId: team.supervisorId,
+          supervisorName: supervisor?.name ?? "",
+          supervisorEmail: supervisor?.email ?? "",
+        };
+      }),
+    );
+
+    // Load supervisors (filter by includedSupervisorIds if provided)
+    const allSupervisors = (await db.select().from(usersTable)).filter((user) => user.role === "supervisor");
     const supervisors = parsed.includedSupervisorIds?.length
       ? allSupervisors.filter((sup) => parsed.includedSupervisorIds!.includes(sup.id))
       : allSupervisors;
 
-    const { schedules, warnings } = await buildDiscussionSchedule(teamsWithSupervisor, supervisors, parsed as DiscussionSettingsInput);
+    // Build the schedule
+    const result = await buildDiscussionSchedule(teamsWithSupervisor, supervisors, parsed as DiscussionSettingsInput);
 
-    const existingSchedules = await db.select().from(discussionSchedulesTable);
-    await Promise.all(existingSchedules.map((schedule) => db.delete(discussionSchedulesTable).where(eq(discussionSchedulesTable.id, schedule.id))));
+    // Save to database
+    await saveDiscussionSchedule(result.schedules, parsed as DiscussionSettingsInput);
 
-    const existingSettings = await db.select().from(discussionSettingsTable);
-    await Promise.all(existingSettings.map((setting) => db.delete(discussionSettingsTable).where(eq(discussionSettingsTable.id, setting.id))));
-
-    const insertedSchedules = await db.insert(discussionSchedulesTable).values(schedules).returning();
-    await db.insert(discussionSettingsTable).values({
-      startDate: parsed.startDate,
-      endDate: parsed.endDate,
-      workStartHour: parsed.workStartHour,
-      workEndHour: parsed.workEndHour,
-      discussionDuration: parsed.discussionDuration,
-      breakDuration: parsed.breakDuration,
-      roomsCount: parsed.roomsCount,
-      includedTeamIds: parsed.includedTeamIds ?? null,
-    });
-
-    const response = await buildScheduleResponse();
+    // Fetch and return updated schedules
+    const schedules = await getAllDiscussionSchedules();
 
     await logActivity("discussion_schedule_generated", "Generated a new discussion schedule.", req.user!.id);
-    res.status(201).json({ schedules: response, warnings });
+    res.status(201).json({ schedules, warnings: result.warnings });
   } catch (error: any) {
     const message = error?.message || "Unable to generate schedule.";
     res.status(400).json({ error: message });
   }
 });
 
+/**
+ * PUT /discussions/:id
+ * Update a specific discussion schedule
+ */
 router.put("/discussions/:id", requireAuth, requireRole("coordinator"), async (req, res): Promise<void> => {
   try {
     const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
@@ -157,17 +121,21 @@ router.put("/discussions/:id", requireAuth, requireRole("coordinator"), async (r
     }
 
     const validated = updateScheduleSchema.parse(req.body);
-    const [existing] = await db.select().from(discussionSchedulesTable).where(eq(discussionSchedulesTable.id, id));
+
+    // Get existing schedule
+    const allSchedules = await getAllDiscussionSchedules();
+    const existing = allSchedules.find((s) => s.id === id);
     if (!existing) {
       res.status(404).json({ error: "Schedule not found" });
       return;
     }
 
-    const updatedValues: any = { ...validated };
+    // Validate examiners
     if (validated.examiner1Id && validated.examiner2Id && validated.examiner1Id === validated.examiner2Id) {
       res.status(400).json({ error: "Examiner 1 and Examiner 2 must be different people." });
       return;
     }
+
     const exam1 = validated.examiner1Id ?? existing.examiner1Id;
     const exam2 = validated.examiner2Id ?? existing.examiner2Id;
     if (exam1 === existing.supervisorId || exam2 === existing.supervisorId) {
@@ -175,55 +143,54 @@ router.put("/discussions/:id", requireAuth, requireRole("coordinator"), async (r
       return;
     }
 
-    const merged = { ...existing, ...validated };
-    const allSchedules = await db.select().from(discussionSchedulesTable);
-    const conflicts = allSchedules.filter((schedule) => schedule.id !== id).some((schedule) => {
-      const date = merged.date ?? existing.date;
-      const startTime = merged.startTime ?? existing.startTime;
-      const endTime = merged.endTime ?? existing.endTime;
-      const room = merged.room ?? existing.room;
-      const supervisorId = merged.supervisorId ?? existing.supervisorId;
-      const examiner1Id = merged.examiner1Id ?? existing.examiner1Id;
-      const examiner2Id = merged.examiner2Id ?? existing.examiner2Id;
+    // Merge with existing data
+    const merged = {
+      date: validated.date ?? existing.date,
+      startTime: validated.startTime ?? existing.startTime,
+      endTime: validated.endTime ?? existing.endTime,
+      room: validated.room ?? existing.room,
+      supervisorId: existing.supervisorId,
+      examiner1Id: exam1,
+      examiner2Id: exam2,
+    };
 
-      if (schedule.room === room && timeRangeOverlaps(date, startTime, endTime, schedule.date, schedule.startTime, schedule.endTime)) {
-        return true;
-      }
-
-      const people = [supervisorId, examiner1Id, examiner2Id];
-      const otherPeople = [schedule.supervisorId, schedule.examiner1Id, schedule.examiner2Id];
-      if (timeRangeOverlaps(date, startTime, endTime, schedule.date, schedule.startTime, schedule.endTime)) {
-        return people.some((person) => otherPeople.includes(person));
-      }
-
-      return false;
-    });
-
-    if (conflicts) {
+    // Check for conflicts
+    if (checkScheduleConflicts(merged, allSchedules, id)) {
       res.status(400).json({ error: "The requested update causes an instructor or room conflict." });
       return;
     }
 
-    const [updated] = await db.update(discussionSchedulesTable).set(updatedValues).where(eq(discussionSchedulesTable.id, id)).returning();
-    const response = await buildScheduleResponse();
+    // Update schedule
+    const updated = await updateDiscussionSchedule(id, validated);
+    const schedules = await getAllDiscussionSchedules();
+
     await logActivity("discussion_schedule_updated", "Updated a discussion session.", req.user!.id);
-    res.json({ schedule: updated, schedules: response });
+    res.json({ schedule: updated, schedules });
   } catch (error: any) {
     res.status(400).json({ error: error?.message || "Failed to update schedule." });
   }
 });
 
+/**
+ * DELETE /discussions/:id
+ * Delete a discussion schedule
+ */
 router.delete("/discussions/:id", requireAuth, requireRole("coordinator"), async (req, res): Promise<void> => {
-  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-  const id = Number(raw);
-  if (Number.isNaN(id)) {
-    res.status(400).json({ error: "Invalid schedule ID" });
-    return;
-  }
+  try {
+    const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const id = Number(raw);
+    if (Number.isNaN(id)) {
+      res.status(400).json({ error: "Invalid schedule ID" });
+      return;
+    }
 
-  await db.delete(discussionSchedulesTable).where(eq(discussionSchedulesTable.id, id));
-  await logActivity("discussion_schedule_deleted", "Deleted a discussion session.", req.user!.id);
-  res.json({ message: "Schedule removed" });
+    await deleteDiscussionSchedule(id);
+    await logActivity("discussion_schedule_deleted", "Deleted a discussion session.", req.user!.id);
+
+    res.json({ message: "Schedule removed" });
+  } catch (error: any) {
+    res.status(500).json({ error: error?.message || "Failed to delete schedule" });
+  }
 });
 
 export default router;
