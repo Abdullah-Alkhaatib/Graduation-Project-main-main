@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { IRouter } from "express";
-import { requireAuth, requireRole } from "../lib/session";
+import { requireAuth, requireRole } from "../middlewares/auth";
 import { getStudentTasks, getSupervisorTasks, getAllTasks, getTaskById, createTask, updateTask } from "../services/tasks";
 
 const router: IRouter = Router();

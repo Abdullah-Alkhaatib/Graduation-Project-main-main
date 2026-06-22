@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { IRouter } from "express";
-import { requireAuth, requireRole } from "../lib/session";
+import { requireAuth, requireRole } from "../middlewares/auth";
 import { getStudentDashboardData, getSupervisorDashboardData, getCoordinatorDashboardData, getActivityLogs } from "../services/dashboard";
 
 const router: IRouter = Router();

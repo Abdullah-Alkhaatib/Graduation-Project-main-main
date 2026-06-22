@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { IRouter } from "express";
-import { requireAuth } from "../lib/session";
+import { requireAuth } from "../middlewares/auth";
 import {
   formatInvitation,
   getUserInvitations,

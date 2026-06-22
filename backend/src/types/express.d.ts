@@ -1,4 +1,5 @@
 import "express-session";
+import type { SessionUser } from "../middlewares/auth";
 
 declare module "express-session" {
   interface SessionData {
@@ -9,12 +10,7 @@ declare module "express-session" {
 declare global {
   namespace Express {
     interface Request {
-      user?: {
-        id: number;
-        name: string;
-        email: string;
-        role: "student" | "supervisor" | "coordinator";
-      };
+      user?: SessionUser;
     }
   }
 }
