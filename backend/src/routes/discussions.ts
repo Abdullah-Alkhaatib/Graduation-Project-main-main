@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { IRouter } from "express";
 import { z } from "zod/v4";
-import { requireAuth, requireRole } from "../lib/session";
+import { requireAuth, requireRole } from "../middlewares/auth";
 import { logActivity } from "../lib/notify";
 import {
   buildDiscussionSchedule,

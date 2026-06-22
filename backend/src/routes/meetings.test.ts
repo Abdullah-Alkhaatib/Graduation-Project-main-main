@@ -2,7 +2,7 @@ const express = require('express')
 const request = require('supertest')
 
 let mockUser: any = { id: 1, role: 'leader' }
-jest.mock('../lib/session', () => ({
+jest.mock('../middlewares/auth', () => ({
   requireAuth: (req: any, _res: any, next: any) => { req.user = mockUser; next(); },
   __setMockUser: (u: any) => { mockUser = u }
 }))
@@ -32,7 +32,7 @@ describe('POST /meetings', () => {
   })
 
   test('only leader can request -> 403', async () => {
-    const session = require('../lib/session')
+    const session = require('../middlewares/auth')
     session.__setMockUser({ id: 1, role: 'student' })
 
     // membership exists but role is not leader
@@ -43,7 +43,7 @@ describe('POST /meetings', () => {
   })
 
   test('successful meeting request when leader and valid slot', async () => {
-    const session = require('../lib/session')
+    const session = require('../middlewares/auth')
     session.__setMockUser({ id: 1, role: 'leader' })
 
     // membership

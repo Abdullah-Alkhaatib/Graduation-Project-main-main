@@ -3,7 +3,7 @@ const request = require('supertest')
 
 // Mock session middleware to control req.user in tests
 let mockUser: any = { id: 1, role: 'supervisor' }
-jest.mock('../lib/session', () => ({
+jest.mock('../middlewares/auth', () => ({
   requireAuth: (req: any, _res: any, next: any) => { req.user = mockUser; next(); },
   __setMockUser: (u: any) => { mockUser = u }
 }))
@@ -51,7 +51,7 @@ describe('PUT /auth/me (supervisor office hours)', () => {
 
   test('returns 403 when user is not supervisor', async () => {
     // set mock user to student
-    const session = require('../lib/session')
+    const session = require('../middlewares/auth')
     session.__setMockUser({ id: 3, role: 'student' })
 
     const res = await request(app).put('/auth/me').send({ officeHours: '2026-06-04T00:00:00Z' })
@@ -60,7 +60,7 @@ describe('PUT /auth/me (supervisor office hours)', () => {
   })
 
   test('returns 400 for invalid office hours', async () => {
-    const session = require('../lib/session')
+    const session = require('../middlewares/auth')
     session.__setMockUser({ id: 1, role: 'supervisor' })
 
     const res = await request(app).put('/auth/me').send({ officeHours: 'not-a-date' })
@@ -69,7 +69,7 @@ describe('PUT /auth/me (supervisor office hours)', () => {
   })
 
   test('updates office hours for supervisor and returns formatted user', async () => {
-    const session = require('../lib/session')
+    const session = require('../middlewares/auth')
     session.__setMockUser({ id: 1, role: 'supervisor' })
 
     const date = new Date().toISOString()

@@ -2,7 +2,7 @@ const express = require('express')
 const request = require('supertest')
 
 let mockUser: any = { id: 1, role: 'supervisor' }
-jest.mock('../lib/session', () => ({
+jest.mock('../middlewares/auth', () => ({
   requireAuth: (req: any, _res: any, next: any) => { req.user = mockUser; next(); },
   requireRole: (...roles: any[]) => (req: any, res: any, next: any) => {
     if (!req.user || !roles.includes(req.user.role)) {
@@ -49,7 +49,7 @@ describe('PUT /tasks/:id', () => {
   })
 
   test('rejects students', async () => {
-    const session = require('../lib/session')
+    const session = require('../middlewares/auth')
     session.__setMockUser({ id: 3, role: 'student' })
 
     const res = await request(app).put('/tasks/12').send({ status: 'reviewed' })
@@ -59,7 +59,7 @@ describe('PUT /tasks/:id', () => {
   })
 
   test('rejects supervisor who is not assigned to the task team', async () => {
-    const session = require('../lib/session')
+    const session = require('../middlewares/auth')
     session.__setMockUser({ id: 4, role: 'supervisor' })
 
     dbMock.select.mockImplementationOnce(() => ({ from: jest.fn(() => ({ where: jest.fn(() => Promise.resolve([mockTask])) })) }))
@@ -72,7 +72,7 @@ describe('PUT /tasks/:id', () => {
   })
 
   test('allows assigned supervisor to update task', async () => {
-    const session = require('../lib/session')
+    const session = require('../middlewares/auth')
     session.__setMockUser({ id: 2, role: 'supervisor' })
 
     dbMock.select.mockImplementationOnce(() => ({ from: jest.fn(() => ({ where: jest.fn(() => Promise.resolve([mockTask])) })) }))
@@ -85,7 +85,7 @@ describe('PUT /tasks/:id', () => {
   })
 
   test('allows coordinator to update any task', async () => {
-    const session = require('../lib/session')
+    const session = require('../middlewares/auth')
     session.__setMockUser({ id: 99, role: 'coordinator' })
 
     dbMock.select.mockImplementationOnce(() => ({ from: jest.fn(() => ({ where: jest.fn(() => Promise.resolve([mockTask])) })) }))

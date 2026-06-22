@@ -15,11 +15,13 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
+
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
   if (!user) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
+
   req.user = { id: user.id, name: user.name, email: user.email, role: user.role as SessionUser["role"] };
   next();
 }
@@ -30,7 +32,7 @@ export function requireRole(...roles: string[]) {
       res.status(403).json({ error: "Forbidden" });
       return;
     }
+
     next();
   };
 }
-

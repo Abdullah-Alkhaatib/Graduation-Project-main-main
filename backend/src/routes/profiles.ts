@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { IRouter } from "express";
-import { requireAuth } from "../lib/session";
+import { requireAuth } from "../middlewares/auth";
 import { getMyProfile, updateMyProfile, getProfileByUserId, getStudentTeam, getCoordinatorStudentProfiles, getAllStudentProfiles } from "../services/profiles";
 
 const router: IRouter = Router();

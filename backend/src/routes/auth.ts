@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { IRouter } from "express";
 import { RegisterBody, LoginBody } from "@workspace/api-zod";
-import { requireAuth } from "../lib/session";
+import { requireAuth } from "../middlewares/auth";
 import {
   registerUser,
   loginUser,
