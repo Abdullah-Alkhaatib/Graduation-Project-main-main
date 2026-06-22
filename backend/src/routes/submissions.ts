@@ -8,13 +8,9 @@ import { createWriteStream, mkdirSync } from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { pipeline } from "node:stream/promises";
+import { isTaskVisibleForSupervisor } from "../services/tasks";
 
 const router: IRouter = Router();
-
-function isTaskVisibleForSupervisor(task: typeof tasksTable.$inferSelect, supervisorId: number | null | undefined) {
-  if (!supervisorId) return false;
-  return task.supervisorId == null || task.supervisorId === supervisorId;
-}
 
 function safeFileName(fileName: string): string {
   const base = path.basename(fileName).replace(/[^a-zA-Z0-9._-]+/g, "_");

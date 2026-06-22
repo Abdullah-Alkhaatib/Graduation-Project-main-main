@@ -4,13 +4,9 @@ import { db, teamsTable, tasksTable, teamMembersTable } from "@workspace/db";
 import { eq, and } from "@workspace/db";
 import { requireAuth, requireRole } from "../lib/session";
 import { createNotification, logActivity } from "../lib/notify";
+import { isTaskVisibleForSupervisor } from "../services/tasks";
 
 const router: IRouter = Router();
-
-function isTaskVisibleForSupervisor(task: typeof tasksTable.$inferSelect, supervisorId: number | null | undefined) {
-  if (!supervisorId) return false;
-  return task.supervisorId == null || task.supervisorId === supervisorId;
-}
 
 async function formatTask(task: typeof tasksTable.$inferSelect) {
   const [team] = await db.select().from(teamsTable).where(eq(teamsTable.id, task.teamId));

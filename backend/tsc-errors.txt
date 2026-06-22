@@ -1,0 +1,173 @@
+﻿src/routes/auth.test.ts(6,1): error TS2304: Cannot find name 'jest'.
+src/routes/auth.test.ts(14,11): error TS2304: Cannot find name 'jest'.
+src/routes/auth.test.ts(14,34): error TS2304: Cannot find name 'jest'.
+src/routes/auth.test.ts(14,58): error TS2304: Cannot find name 'jest'.
+src/routes/auth.test.ts(15,11): error TS2304: Cannot find name 'jest'.
+src/routes/auth.test.ts(16,11): error TS2304: Cannot find name 'jest'.
+src/routes/auth.test.ts(17,10): error TS2304: Cannot find name 'jest'.
+src/routes/auth.test.ts(18,14): error TS2304: Cannot find name 'jest'.
+src/routes/auth.test.ts(18,42): error TS2304: Cannot find name 'jest'.
+src/routes/auth.test.ts(23,1): error TS2304: Cannot find name 'jest'.
+src/routes/auth.test.ts(25,18): error TS2614: Module '"./auth"' has no exported member 'formatUser'. Did you mean to use 'import formatUser from "./auth"' instead?
+src/routes/auth.test.ts(25,30): error TS2614: Module '"./auth"' has no exported member 'generateStudentId'. Did you mean to use 'import generateStudentId from "./auth"' instead?
+src/routes/auth.test.ts(27,1): error TS2593: Cannot find name 'describe'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha` and then add 'jest' or 'mocha' to the types field in your tsconfig.
+src/routes/auth.test.ts(28,3): error TS2593: Cannot find name 'test'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha` and then add 'jest' or 'mocha' to the types field in your tsconfig.
+src/routes/auth.test.ts(30,5): error TS2304: Cannot find name 'expect'.
+src/routes/auth.test.ts(31,5): error TS2304: Cannot find name 'expect'.
+src/routes/auth.test.ts(34,3): error TS2593: Cannot find name 'test'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha` and then add 'jest' or 'mocha' to the types field in your tsconfig.
+src/routes/auth.test.ts(37,5): error TS2304: Cannot find name 'expect'.
+src/routes/auth.test.ts(38,5): error TS2304: Cannot find name 'expect'.
+src/routes/auth.test.ts(39,5): error TS2304: Cannot find name 'expect'.
+src/routes/auth.test.ts(40,5): error TS2304: Cannot find name 'expect'.
+src/routes/auth.test.ts(44,1): error TS2593: Cannot find name 'describe'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha` and then add 'jest' or 'mocha' to the types field in your tsconfig.
+src/routes/auth.test.ts(45,12): error TS2503: Cannot find namespace 'express'.
+src/routes/auth.test.ts(46,3): error TS2304: Cannot find name 'beforeEach'.
+src/routes/auth.test.ts(52,3): error TS2593: Cannot find name 'test'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha` and then add 'jest' or 'mocha' to the types field in your tsconfig.
+src/routes/auth.test.ts(58,5): error TS2304: Cannot find name 'expect'.
+src/routes/auth.test.ts(59,5): error TS2304: Cannot find name 'expect'.
+src/routes/auth.test.ts(62,3): error TS2593: Cannot find name 'test'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha` and then add 'jest' or 'mocha' to the types field in your tsconfig.
+src/routes/auth.test.ts(67,5): error TS2304: Cannot find name 'expect'.
+src/routes/auth.test.ts(68,5): error TS2304: Cannot find name 'expect'.
+src/routes/auth.test.ts(71,3): error TS2593: Cannot find name 'test'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha` and then add 'jest' or 'mocha' to the types field in your tsconfig.
+src/routes/auth.test.ts(77,5): error TS2304: Cannot find name 'expect'.
+src/routes/auth.test.ts(78,5): error TS2304: Cannot find name 'expect'.
+src/routes/auth.test.ts(79,5): error TS2304: Cannot find name 'expect'.
+src/routes/auth.ts(27,39): error TS2345: Argument of type '{ name: string; email: string; password: string; role: "student" | "supervisor" | "coordinator"; studentId?: string | null | undefined; gender?: "Male" | "Female" | null | undefined; }' is not assignable to parameter of type 'RegisterData'.
+  Types of property 'studentId' are incompatible.
+    Type 'string | null | undefined' is not assignable to type 'string | undefined'.
+      Type 'null' is not assignable to type 'string | undefined'.
+src/routes/discussions.ts(127,49): error TS2339: Property 'id' does not exist on type 'DiscussionScheduleWithDetails'.
+src/routes/discussions.ts(164,56): error TS2345: Argument of type '{ room?: string | undefined; date?: string | undefined; startTime?: string | undefined; endTime?: string | undefined; examiner1Id?: number | undefined; examiner2Id?: number | undefined; status?: "completed" | ... 2 more ... | undefined; }' is not assignable to parameter of type 'Partial<Omit<DiscussionScheduleDraft, "id">>'.
+  Types of property 'status' are incompatible.
+    Type '"completed" | "scheduled" | "cancelled" | undefined' is not assignable to type '"scheduled" | undefined'.
+      Type '"completed"' is not assignable to type '"scheduled"'.
+src/routes/invitations.test.ts(5,1): error TS2304: Cannot find name 'jest'.
+src/routes/invitations.test.ts(16,11): error TS2304: Cannot find name 'jest'.
+src/routes/invitations.test.ts(17,11): error TS2304: Cannot find name 'jest'.
+src/routes/invitations.test.ts(18,11): error TS2304: Cannot find name 'jest'.
+src/routes/invitations.test.ts(18,33): error TS2304: Cannot find name 'jest'.
+src/routes/invitations.test.ts(18,57): error TS2304: Cannot find name 'jest'.
+src/routes/invitations.test.ts(21,1): error TS2304: Cannot find name 'jest'.
+src/routes/invitations.test.ts(21,220): error TS2304: Cannot find name 'jest'.
+src/routes/invitations.test.ts(25,1): error TS2593: Cannot find name 'describe'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha` and then add 'jest' or 'mocha' to the types field in your tsconfig.
+src/routes/invitations.test.ts(27,3): error TS2304: Cannot find name 'beforeEach'.
+src/routes/invitations.test.ts(39,3): error TS2593: Cannot find name 'test'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha` and then add 'jest' or 'mocha' to the types field in your tsconfig.
+src/routes/invitations.test.ts(43,5): error TS2304: Cannot find name 'expect'.
+src/routes/invitations.test.ts(46,3): error TS2593: Cannot find name 'test'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha` and then add 'jest' or 'mocha' to the types field in your tsconfig.
+src/routes/invitations.test.ts(48,57): error TS2304: Cannot find name 'jest'.
+src/routes/invitations.test.ts(48,81): error TS2304: Cannot find name 'jest'.
+src/routes/invitations.test.ts(49,57): error TS2304: Cannot find name 'jest'.
+src/routes/invitations.test.ts(49,81): error TS2304: Cannot find name 'jest'.
+src/routes/invitations.test.ts(50,57): error TS2304: Cannot find name 'jest'.
+src/routes/invitations.test.ts(50,81): error TS2304: Cannot find name 'jest'.
+src/routes/invitations.test.ts(52,57): error TS2304: Cannot find name 'jest'.
+src/routes/invitations.test.ts(52,81): error TS2304: Cannot find name 'jest'.
+src/routes/invitations.test.ts(54,57): error TS2304: Cannot find name 'jest'.
+src/routes/invitations.test.ts(54,81): error TS2304: Cannot find name 'jest'.
+src/routes/invitations.test.ts(56,57): error TS2304: Cannot find name 'jest'.
+src/routes/invitations.test.ts(56,81): error TS2304: Cannot find name 'jest'.
+src/routes/invitations.test.ts(57,57): error TS2304: Cannot find name 'jest'.
+src/routes/invitations.test.ts(57,81): error TS2304: Cannot find name 'jest'.
+src/routes/invitations.test.ts(59,57): error TS2304: Cannot find name 'jest'.
+src/routes/invitations.test.ts(59,81): error TS2304: Cannot find name 'jest'.
+src/routes/invitations.test.ts(60,57): error TS2304: Cannot find name 'jest'.
+src/routes/invitations.test.ts(60,81): error TS2304: Cannot find name 'jest'.
+src/routes/invitations.test.ts(61,57): error TS2304: Cannot find name 'jest'.
+src/routes/invitations.test.ts(61,81): error TS2304: Cannot find name 'jest'.
+src/routes/invitations.test.ts(62,57): error TS2304: Cannot find name 'jest'.
+src/routes/invitations.test.ts(62,81): error TS2304: Cannot find name 'jest'.
+src/routes/invitations.test.ts(63,57): error TS2304: Cannot find name 'jest'.
+src/routes/invitations.test.ts(63,81): error TS2304: Cannot find name 'jest'.
+src/routes/invitations.test.ts(71,5): error TS2304: Cannot find name 'expect'.
+src/routes/invitations.test.ts(72,5): error TS2304: Cannot find name 'expect'.
+src/routes/meetings.test.ts(5,1): error TS2304: Cannot find name 'jest'.
+src/routes/meetings.test.ts(16,11): error TS2304: Cannot find name 'jest'.
+src/routes/meetings.test.ts(17,11): error TS2304: Cannot find name 'jest'.
+src/routes/meetings.test.ts(21,1): error TS2304: Cannot find name 'jest'.
+src/routes/meetings.test.ts(25,1): error TS2593: Cannot find name 'describe'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha` and then add 'jest' or 'mocha' to the types field in your tsconfig.
+src/routes/meetings.test.ts(27,3): error TS2304: Cannot find name 'beforeEach'.
+src/routes/meetings.test.ts(34,3): error TS2593: Cannot find name 'test'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha` and then add 'jest' or 'mocha' to the types field in your tsconfig.
+src/routes/meetings.test.ts(39,57): error TS2304: Cannot find name 'jest'.
+src/routes/meetings.test.ts(39,81): error TS2304: Cannot find name 'jest'.
+src/routes/meetings.test.ts(42,5): error TS2304: Cannot find name 'expect'.
+src/routes/meetings.test.ts(45,3): error TS2593: Cannot find name 'test'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha` and then add 'jest' or 'mocha' to the types field in your tsconfig.
+src/routes/meetings.test.ts(50,57): error TS2304: Cannot find name 'jest'.
+src/routes/meetings.test.ts(50,81): error TS2304: Cannot find name 'jest'.
+src/routes/meetings.test.ts(52,57): error TS2304: Cannot find name 'jest'.
+src/routes/meetings.test.ts(52,81): error TS2304: Cannot find name 'jest'.
+src/routes/meetings.test.ts(54,57): error TS2304: Cannot find name 'jest'.
+src/routes/meetings.test.ts(54,81): error TS2304: Cannot find name 'jest'.
+src/routes/meetings.test.ts(58,5): error TS2304: Cannot find name 'expect'.
+src/routes/meetings.test.ts(59,5): error TS2304: Cannot find name 'expect'.
+src/routes/tasks.test.ts(5,1): error TS2304: Cannot find name 'jest'.
+src/routes/tasks.test.ts(22,11): error TS2304: Cannot find name 'jest'.
+src/routes/tasks.test.ts(23,11): error TS2304: Cannot find name 'jest'.
+src/routes/tasks.test.ts(23,33): error TS2304: Cannot find name 'jest'.
+src/routes/tasks.test.ts(23,57): error TS2304: Cannot find name 'jest'.
+src/routes/tasks.test.ts(23,85): error TS2304: Cannot find name 'jest'.
+src/routes/tasks.test.ts(26,1): error TS2304: Cannot find name 'jest'.
+src/routes/tasks.test.ts(32,8): error TS2304: Cannot find name 'jest'.
+src/routes/tasks.test.ts(37,1): error TS2593: Cannot find name 'describe'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha` and then add 'jest' or 'mocha' to the types field in your tsconfig.
+src/routes/tasks.test.ts(40,3): error TS2304: Cannot find name 'beforeEach'.
+src/routes/tasks.test.ts(51,3): error TS2593: Cannot find name 'test'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha` and then add 'jest' or 'mocha' to the types field in your tsconfig.
+src/routes/tasks.test.ts(56,5): error TS2304: Cannot find name 'expect'.
+src/routes/tasks.test.ts(57,5): error TS2304: Cannot find name 'expect'.
+src/routes/tasks.test.ts(58,5): error TS2304: Cannot find name 'expect'.
+src/routes/tasks.test.ts(61,3): error TS2593: Cannot find name 'test'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha` and then add 'jest' or 'mocha' to the types field in your tsconfig.
+src/routes/tasks.test.ts(65,57): error TS2304: Cannot find name 'jest'.
+src/routes/tasks.test.ts(65,81): error TS2304: Cannot find name 'jest'.
+src/routes/tasks.test.ts(66,57): error TS2304: Cannot find name 'jest'.
+src/routes/tasks.test.ts(66,81): error TS2304: Cannot find name 'jest'.
+src/routes/tasks.test.ts(69,5): error TS2304: Cannot find name 'expect'.
+src/routes/tasks.test.ts(70,5): error TS2304: Cannot find name 'expect'.
+src/routes/tasks.test.ts(71,5): error TS2304: Cannot find name 'expect'.
+src/routes/tasks.test.ts(74,3): error TS2593: Cannot find name 'test'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha` and then add 'jest' or 'mocha' to the types field in your tsconfig.
+src/routes/tasks.test.ts(78,57): error TS2304: Cannot find name 'jest'.
+src/routes/tasks.test.ts(78,81): error TS2304: Cannot find name 'jest'.
+src/routes/tasks.test.ts(79,57): error TS2304: Cannot find name 'jest'.
+src/routes/tasks.test.ts(79,81): error TS2304: Cannot find name 'jest'.
+src/routes/tasks.test.ts(80,57): error TS2304: Cannot find name 'jest'.
+src/routes/tasks.test.ts(80,81): error TS2304: Cannot find name 'jest'.
+src/routes/tasks.test.ts(83,5): error TS2304: Cannot find name 'expect'.
+src/routes/tasks.test.ts(84,5): error TS2304: Cannot find name 'expect'.
+src/routes/tasks.test.ts(87,3): error TS2593: Cannot find name 'test'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha` and then add 'jest' or 'mocha' to the types field in your tsconfig.
+src/routes/tasks.test.ts(91,57): error TS2304: Cannot find name 'jest'.
+src/routes/tasks.test.ts(91,81): error TS2304: Cannot find name 'jest'.
+src/routes/tasks.test.ts(92,57): error TS2304: Cannot find name 'jest'.
+src/routes/tasks.test.ts(92,81): error TS2304: Cannot find name 'jest'.
+src/routes/tasks.test.ts(95,5): error TS2304: Cannot find name 'expect'.
+src/routes/tasks.test.ts(96,5): error TS2304: Cannot find name 'expect'.
+src/routes/users.ts(80,5): error TS2345: Argument of type 'null' is not assignable to parameter of type 'number | undefined'.
+src/services/dashboard.ts(1,71): error TS2724: '"@workspace/db"' has no exported member named 'discussionsTable'. Did you mean 'submissionsTable'?
+src/services/dashboard.ts(1,89): error TS2305: Module '"@workspace/db"' has no exported member 'phasesTable'.
+src/services/dashboard.ts(2,19): error TS2305: Module '"@workspace/db"' has no exported member 'count'.
+src/services/dashboard.ts(58,30): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/services/dashboard.ts(61,91): error TS2345: Argument of type 'SqlCount' is not assignable to parameter of type 'Condition'.
+  Property 'conditions' is missing in type 'SqlCount' but required in type '{ type: "or"; conditions: Condition[]; }'.
+src/services/dashboard.ts(61,114): error TS2339: Property 'teamId' does not exist on type 'TableDef<Submission>'.
+src/services/dashboard.ts(63,85): error TS2345: Argument of type 'SqlCount' is not assignable to parameter of type 'Condition'.
+  Property 'conditions' is missing in type 'SqlCount' but required in type '{ type: "or"; conditions: Condition[]; }'.
+src/services/dashboard.ts(108,90): error TS2339: Property 'teamId' does not exist on type 'TableDef<Submission>'.
+src/services/discussion-scheduling.test.ts(3,1): error TS2593: Cannot find name 'describe'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha` and then add 'jest' or 'mocha' to the types field in your tsconfig.
+src/services/discussion-scheduling.test.ts(4,3): error TS2593: Cannot find name 'test'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha` and then add 'jest' or 'mocha' to the types field in your tsconfig.
+src/services/discussion-scheduling.test.ts(7,11): error TS2304: Cannot find name 'expect'.
+src/services/discussion-scheduling.test.ts(12,3): error TS2593: Cannot find name 'test'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha` and then add 'jest' or 'mocha' to the types field in your tsconfig.
+src/services/discussion-scheduling.test.ts(18,5): error TS2304: Cannot find name 'expect'.
+src/services/discussion-scheduling.test.ts(19,5): error TS2304: Cannot find name 'expect'.
+src/services/discussion-scheduling.ts(442,39): error TS2339: Property 'id' does not exist on type 'DiscussionScheduleWithDetails'.
+src/services/discussion-scheduling.ts(482,37): error TS2339: Property 'id' does not exist on type 'DiscussionScheduleWithDetails'.
+src/services/meetings.ts(1,71): error TS2305: Module '"@workspace/db"' has no exported member 'meetingNoteItemsTable'.
+src/services/meetings.ts(12,136): error TS2339: Property 'initiatedByUserId' does not exist on type 'Meeting'.
+src/services/phases.ts(1,14): error TS2305: Module '"@workspace/db"' has no exported member 'phasesTable'.
+src/services/profiles.ts(11,82): error TS2322: Type 'ColumnRef<string | null | undefined> | undefined' is not assignable to type 'ColumnRef<unknown> | SqlCount'.
+  Type 'undefined' is not assignable to type 'ColumnRef<unknown> | SqlCount'.
+src/services/profiles.ts(11,115): error TS2322: Type 'ColumnRef<"Male" | "Female" | null | undefined> | undefined' is not assignable to type 'ColumnRef<unknown> | SqlCount'.
+  Type 'undefined' is not assignable to type 'ColumnRef<unknown> | SqlCount'.
+src/services/profiles.ts(32,6): error TS2339: Property 'innerJoin' does not exist on type 'SelectBuilder'.
+src/services/profiles.ts(32,99): error TS2339: Property 'teamId' does not exist on type 'TableDef<Submission>'.
+src/services/profiles.ts(32,158): error TS2339: Property 'teamId' does not exist on type 'TableDef<Submission>'.
+src/services/storage.ts(31,31): error TS2339: Property 'getObject' does not exist on type 'ObjectStorageService'.
+src/services/storage.ts(39,32): error TS2339: Property 'getObject' does not exist on type 'ObjectStorageService'.
+src/services/submissions.ts(180,92): error TS2345: Argument of type 'null' is not assignable to parameter of type 'number | undefined'.
+src/services/users.ts(104,123): error TS2345: Argument of type 'null' is not assignable to parameter of type 'number | undefined'.
+src/services/users.ts(106,91): error TS2345: Argument of type 'null' is not assignable to parameter of type 'number | undefined'.
