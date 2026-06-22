@@ -12,7 +12,6 @@ import submissionsRouter from "./submissions";
 import meetingsRouter from "./meetings";
 import notificationsRouter from "./notifications";
 import dashboardRouter from "./dashboard";
-import storageRouter from "./storage";
 import discussionsRouter from "./discussions";
 
 const router: IRouter = Router();
@@ -30,7 +29,6 @@ router.use(submissionsRouter);
 router.use(meetingsRouter);
 router.use(notificationsRouter);
 router.use(dashboardRouter);
-router.use(storageRouter);
 router.use(discussionsRouter);
 
 export default router;

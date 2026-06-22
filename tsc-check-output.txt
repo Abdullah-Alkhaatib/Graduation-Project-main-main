@@ -170,8 +170,6 @@ src/services/profiles.ts(11,115): error TS2322: Type 'ColumnRef<"Male" | "Female
 src/services/profiles.ts(32,6): error TS2339: Property 'innerJoin' does not exist on type 'SelectBuilder'.
 src/services/profiles.ts(32,99): error TS2339: Property 'teamId' does not exist on type 'TableDef<Submission>'.
 src/services/profiles.ts(32,158): error TS2339: Property 'teamId' does not exist on type 'TableDef<Submission>'.
-src/services/storage.ts(31,31): error TS2339: Property 'getObject' does not exist on type 'ObjectStorageService'.
-src/services/storage.ts(39,32): error TS2339: Property 'getObject' does not exist on type 'ObjectStorageService'.
 src/services/submissions.ts(180,92): error TS2345: Argument of type 'null' is not assignable to parameter of type 'number | undefined'.
 src/services/teams.ts(551,95): error TS2345: Argument of type 'number | null' is not assignable to parameter of type 'number | undefined'.
   Type 'null' is not assignable to type 'number | undefined'.

@@ -207,7 +207,7 @@ export async function registerUser(data: RegisterData) {
 - [x] `health.ts` → (HTTP-only endpoint, 0 DB calls - already conforms)
 - [x] `index.ts` → (Router aggregator, 0 DB calls - already conforms)
 - [ ] `discussions.ts` → `services/discussions.ts`
-- [x] `storage.ts` → (Uses ObjectStorageService, 0 DB calls - already conforms)
+- [x] `storage.ts` → (Removed unused legacy object-storage layer)
 
 ---
 
