@@ -189,11 +189,25 @@ export async function registerUser(data: RegisterData) {
 
 الـ routes التالية تحتاج إعادة هيكلة بنفس الطريقة:
 
-- [ ] `teams.ts` → `services/teams.ts`
-- [ ] `tasks.ts` → `services/tasks.ts`
-- [ ] `users.ts` → `services/users.ts`
-- [ ] `meetings.ts` → `services/meetings.ts`
-- [ ] وغيرها...
+### ✅ مكتمل
+- [x] `teams.ts` → `services/teams.ts`
+- [x] `invitations.ts` → `services/invitations.ts`
+- [x] `submissions.ts` → `services/submissions.ts`
+- [x] `supervisor-requests.ts` → `services/supervisor-requests.ts`
+- [x] `dashboard.ts` → `services/dashboard.ts`
+- [x] `profiles.ts` → `services/profiles.ts`
+- [x] `tasks.ts` → `services/tasks.ts`
+- [x] `meetings.ts` → `services/meetings.ts`
+- [x] `phases.ts` → `services/phases.ts`
+- [x] `auth.ts` → `services/auth.ts`
+- [x] `notifications.ts` → `services/notifications.ts`
+- [x] `users.ts` → `services/users.ts`
+
+### ⏳ في الانتظار
+- [x] `health.ts` → (HTTP-only endpoint, 0 DB calls - already conforms)
+- [x] `index.ts` → (Router aggregator, 0 DB calls - already conforms)
+- [ ] `discussions.ts` → `services/discussions.ts`
+- [x] `storage.ts` → (Uses ObjectStorageService, 0 DB calls - already conforms)
 
 ---
 
@@ -223,3 +237,5 @@ router.post("/endpoint", async (req, res) => {
 ---
 
 تم إعادة الهيكلة بنجاح! ✨
+
+- [x] `discussions.ts` → `services/discussion-scheduling.ts` (+ new helper functions added)

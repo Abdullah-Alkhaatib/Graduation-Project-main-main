@@ -488,3 +488,42 @@ export async function updateDiscussionSchedule(
 export async function deleteDiscussionSchedule(scheduleId: number): Promise<void> {
   await db.delete(discussionSchedulesTable).where(eq(discussionSchedulesTable.id, scheduleId));
 }
+
+/**
+ * Load all teams with supervisor information
+ */
+export async function getTeamsWithSupervisors(includedTeamIds?: number[]) {
+  const allTeams = await db.select().from(teamsTable);
+  const teamsWithSupervisor = await Promise.all(
+    allTeams.map(async (team) => {
+      const [supervisor] = team.supervisorId
+        ? await db.select().from(usersTable).where(eq(usersTable.id, team.supervisorId))
+        : [null];
+      return {
+        ...team,
+        supervisorId: team.supervisorId,
+        supervisorName: supervisor?.name ?? "",
+        supervisorEmail: supervisor?.email ?? "",
+      };
+    }),
+  );
+
+  if (includedTeamIds?.length) {
+    return teamsWithSupervisor.filter((team) => includedTeamIds.includes(team.id));
+  }
+
+  return teamsWithSupervisor;
+}
+
+/**
+ * Load all supervisors, optionally filtered by IDs
+ */
+export async function getSupervisorsForScheduling(includedSupervisorIds?: number[]) {
+  const allSupervisors = (await db.select().from(usersTable)).filter((user) => user.role === "supervisor");
+
+  if (includedSupervisorIds?.length) {
+    return allSupervisors.filter((sup) => includedSupervisorIds.includes(sup.id));
+  }
+
+  return allSupervisors;
+}

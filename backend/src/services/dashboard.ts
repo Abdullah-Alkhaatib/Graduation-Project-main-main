@@ -1,164 +1,216 @@
-import { db, usersTable, teamsTable, submissionsTable, meetingsTable, discussionsTable, phasesTable, invitationsTable } from "@workspace/db";
-import { eq, sql, count } from "@workspace/db";
+import { db, usersTable, teamsTable, tasksTable, invitationsTable, notificationsTable, supervisorRequestsTable, meetingsTable, teamMembersTable, activityLogsTable } from "@workspace/db";
+import { eq, and, sql, desc, count } from "@workspace/db";
 
-// ============ Coordinator Dashboard ============
+// ============ Formatting ============
 
 /**
- * Get coordinator dashboard statistics
+ * Format team with leader, supervisor, and member count
  */
-export async function getCoordinatorDashboard(): Promise<any> {
-  // Batch fetch all data to avoid N+1 queries
-  const [totalStudents] = await db
-    .select({ count: count(usersTable.id) })
+export async function formatTeamBasic(team: typeof teamsTable.$inferSelect) {
+  const [leader] = await db
+    .select({ id: usersTable.id, name: usersTable.name, email: usersTable.email, role: usersTable.role, officeHours: usersTable.officeHours, createdAt: usersTable.createdAt })
     .from(usersTable)
-    .where(eq(usersTable.role, "student"));
+    .where(eq(usersTable.id, team.leaderId));
 
-  const [totalSupervisors] = await db
-    .select({ count: count(usersTable.id) })
-    .from(usersTable)
-    .where(eq(usersTable.role, "supervisor"));
+  let supervisor = null;
+  if (team.supervisorId) {
+    const [s] = await db
+      .select({ id: usersTable.id, name: usersTable.name, email: usersTable.email, role: usersTable.role, officeHours: usersTable.officeHours, createdAt: usersTable.createdAt })
+      .from(usersTable)
+      .where(eq(usersTable.id, team.supervisorId));
+    supervisor = s || null;
+  }
 
-  const [totalTeams] = await db
-    .select({ count: count(teamsTable.id) })
-    .from(teamsTable);
+  const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(teamMembersTable).where(eq(teamMembersTable.teamId, team.id));
 
-  const [pendingRequests] = await db
-    .select({ count: count(invitationsTable.id) })
-    .from(invitationsTable)
-    .where(eq(invitationsTable.status, "pending"));
+  return { ...team, leader, supervisor, memberCount: countResult?.count ?? 0 };
+}
 
-  const [pendingSubmissions] = await db
-    .select({ count: count(submissionsTable.id) })
-    .from(submissionsTable)
-    .where(eq(submissionsTable.status, "pending"));
+/**
+ * Format activity log with user details
+ */
+export async function formatActivityLog(log: typeof activityLogsTable.$inferSelect) {
+  let user = null;
+  if (log.userId) {
+    const [u] = await db
+      .select({ id: usersTable.id, name: usersTable.name, email: usersTable.email, role: usersTable.role, createdAt: usersTable.createdAt })
+      .from(usersTable)
+      .where(eq(usersTable.id, log.userId));
+    user = u || null;
+  }
+  return { ...log, user };
+}
+
+// ============ Student Dashboard ============
+
+/**
+ * Get student dashboard data
+ */
+export async function getStudentDashboardData(userId: number): Promise<any> {
+  const [membership] = await db.select().from(teamMembersTable).where(eq(teamMembersTable.userId, userId));
+
+  let team = null;
+  let currentPhase = null;
+  let pendingTasks = 0;
+  let submittedTasks = 0;
+
+  if (membership) {
+    const [t] = await db.select().from(teamsTable).where(eq(teamsTable.id, membership.teamId));
+    team = t ? await formatTeamBasic(t) : null;
+    currentPhase = t?.currentPhase ?? null;
+
+    const tasks = await db.select().from(tasksTable).where(eq(tasksTable.teamId, membership.teamId));
+    pendingTasks = tasks.filter((t) => t.status === "pending").length;
+    submittedTasks = tasks.filter((t) => t.status === "submitted").length;
+  }
+
+  const invitations = await db.select().from(invitationsTable).where(and(eq(invitationsTable.invitedUserId, userId), eq(invitationsTable.status, "pending")));
+  const visiblePendingInvitations = invitations.filter((invitation) => !(invitation.requiresTeamApproval && !invitation.approvalForInvitationId));
+
+  const notifications = await db.select().from(notificationsTable).where(and(eq(notificationsTable.userId, userId), eq(notificationsTable.isRead, false)));
+
+  const recentActivity = await db
+    .select()
+    .from(activityLogsTable)
+    .where(eq(activityLogsTable.userId, userId))
+    .orderBy(desc(activityLogsTable.createdAt))
+    .limit(5);
+
+  const activityWithUsers = await Promise.all(recentActivity.map(formatActivityLog));
 
   return {
-    statistics: {
-      totalStudents: totalStudents.count || 0,
-      totalSupervisors: totalSupervisors.count || 0,
-      totalTeams: totalTeams.count || 0,
-      pendingRequests: pendingRequests.count || 0,
-      pendingSubmissions: pendingSubmissions.count || 0,
-    },
-    timestamp: new Date(),
+    team,
+    currentPhase,
+    pendingTasks,
+    submittedTasks,
+    pendingInvitations: visiblePendingInvitations.length,
+    unreadNotifications: notifications.length,
+    recentActivity: activityWithUsers,
   };
 }
 
 // ============ Supervisor Dashboard ============
 
 /**
- * Get supervisor dashboard with assigned teams summary
+ * Get supervisor dashboard data
  */
-export async function getSupervisorDashboard(supervisorId: number): Promise<any> {
-  const [teams] = await db
+export async function getSupervisorDashboardData(userId: number): Promise<any> {
+  const supervisedTeams = await db.select().from(teamsTable).where(eq(teamsTable.supervisorId, userId));
+
+  const pendingRequests = await db
     .select()
-    .from(teamsTable)
-    .where(eq(teamsTable.supervisorId, supervisorId));
+    .from(supervisorRequestsTable)
+    .where(and(eq(supervisorRequestsTable.supervisorId, userId), eq(supervisorRequestsTable.status, "pending")));
 
-  const teamIds = teams.map((t) => t.id);
+  const teamIds = supervisedTeams.map((t) => t.id);
+  let pendingReviews = 0;
 
-  // Batch fetch related data
-  const submissions = teamIds.length > 0 ? await db.select().from(submissionsTable).where(sql`${submissionsTable.teamId} IN (${teamIds.join(",")})`) : [];
-
-  const meetings = teamIds.length > 0 ? await db.select().from(meetingsTable).where(sql`${meetingsTable.teamId} IN (${teamIds.join(",")})`) : [];
-
-  const pendingSubmissions = submissions.filter((s) => s.status === "pending").length;
-  const pendingMeetings = meetings.filter((m) => m.status === "pending").length;
-
-  return {
-    assignedTeams: teams,
-    summary: {
-      teamCount: teams.length,
-      submissionCount: submissions.length,
-      pendingSubmissions,
-      meetingCount: meetings.length,
-      pendingMeetings,
-    },
-    timestamp: new Date(),
-  };
-}
-
-// ============ Student Dashboard ============
-
-/**
- * Get student dashboard with team and tasks summary
- */
-export async function getStudentDashboard(userId: number): Promise<any> {
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
-  if (!user) throw new Error("User not found");
-
-  // Get team data
-  const teams = await db.select().from(teamsTable);
-  const userTeam = teams.find((t) => t.leaderId === userId);
-
-  if (!userTeam) {
-    return {
-      user: { id: user.id, name: user.name, email: user.email },
-      team: null,
-      submissions: [],
-      summary: {
-        submissionCount: 0,
-        approvedSubmissions: 0,
-        pendingSubmissions: 0,
-      },
-      timestamp: new Date(),
-    };
+  if (teamIds.length > 0) {
+    const allTasks = await db.select().from(tasksTable);
+    const relevantTasks = allTasks.filter((t) => teamIds.includes(t.teamId));
+    pendingReviews = relevantTasks.filter((t) => t.status === "submitted").length;
   }
 
-  const submissions = await db.select().from(submissionsTable).where(eq(submissionsTable.teamId, userTeam.id));
+  const pendingMeetings = await db
+    .select()
+    .from(meetingsTable)
+    .where(and(eq(meetingsTable.supervisorId, userId), eq(meetingsTable.status, "pending")));
 
-  const approvedSubmissions = submissions.filter((s) => s.status === "approved").length;
-  const pendingSubmissions = submissions.filter((s) => s.status === "pending").length;
+  const formattedTeams = await Promise.all(supervisedTeams.map(formatTeamBasic));
+
+  const recentActivity = await db
+    .select()
+    .from(activityLogsTable)
+    .where(eq(activityLogsTable.userId, userId))
+    .orderBy(desc(activityLogsTable.createdAt))
+    .limit(5);
+
+  const activityWithUsers = await Promise.all(recentActivity.map(formatActivityLog));
 
   return {
-    user: { id: user.id, name: user.name, email: user.email },
-    team: userTeam,
-    submissions: submissions.slice(0, 5), // Latest 5
-    summary: {
-      submissionCount: submissions.length,
-      approvedSubmissions,
-      pendingSubmissions,
-    },
-    timestamp: new Date(),
+    assignedTeams: supervisedTeams.length,
+    pendingRequests: pendingRequests.length,
+    pendingReviews,
+    pendingMeetings: pendingMeetings.length,
+    teams: formattedTeams,
+    recentActivity: activityWithUsers,
   };
 }
 
-// ============ Overall System Health ============
+// ============ Coordinator Dashboard ============
 
 /**
- * Get system-wide health metrics
+ * Get coordinator dashboard data
  */
-export async function getSystemHealth(): Promise<any> {
-  const [userStats] = await db
-    .select({
-      students: sql`COUNT(CASE WHEN role = 'student' THEN 1 END)`,
-      supervisors: sql`COUNT(CASE WHEN role = 'supervisor' THEN 1 END)`,
-      coordinators: sql`COUNT(CASE WHEN role = 'coordinator' THEN 1 END)`,
-      total: count(usersTable.id),
-    })
-    .from(usersTable);
+export async function getCoordinatorDashboardData(userId: number): Promise<any> {
+  const allTeams = await db.select().from(teamsTable);
+  const allStudents = await db.select().from(usersTable).where(eq(usersTable.role, "student"));
+  const allSupervisors = await db
+    .select({ id: usersTable.id, name: usersTable.name, email: usersTable.email, role: usersTable.role, createdAt: usersTable.createdAt })
+    .from(usersTable)
+    .where(eq(usersTable.role, "supervisor"));
 
-  const [teamStats] = await db
-    .select({
-      total: count(teamsTable.id),
-      withSupervisor: sql`COUNT(CASE WHEN supervisorId IS NOT NULL THEN 1 END)`,
-      withoutSupervisor: sql`COUNT(CASE WHEN supervisorId IS NULL THEN 1 END)`,
-    })
-    .from(teamsTable);
+  // Get students with teams
+  const studentsWithTeams = await db.select({ userId: teamMembersTable.userId }).from(teamMembersTable);
+  const studentsWithTeamsIds = new Set(studentsWithTeams.map((st) => st.userId));
 
-  const [submissionStats] = await db
-    .select({
-      total: count(submissionsTable.id),
-      approved: sql`COUNT(CASE WHEN status = 'approved' THEN 1 END)`,
-      pending: sql`COUNT(CASE WHEN status = 'pending' THEN 1 END)`,
-      rejected: sql`COUNT(CASE WHEN status = 'rejected' THEN 1 END)`,
-    })
-    .from(submissionsTable);
+  // Get students without teams
+  const studentsWithoutTeams = allStudents.filter((s) => !studentsWithTeamsIds.has(s.id));
+
+  const unassignedTeams = allTeams.filter((t) => !t.supervisorId);
+  const assignedTeams = allTeams.filter((t) => Boolean(t.supervisorId));
+  const proposalTeams = allTeams.filter((t) => t.currentPhase === "proposal").length;
+  const progressTeams = allTeams.filter((t) => t.currentPhase === "progress").length;
+  const finalTeams = allTeams.filter((t) => t.currentPhase === "final").length;
+
+  const supervisorWorkload = await Promise.all(
+    allSupervisors.map(async (sup) => {
+      const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(teamsTable).where(eq(teamsTable.supervisorId, sup.id));
+      return { supervisor: sup, teamCount: countResult?.count ?? 0 };
+    }),
+  );
+
+  const allTeamsFormatted = await Promise.all(allTeams.map(formatTeamBasic));
+  const unassignedFormatted = await Promise.all(unassignedTeams.slice(0, 10).map(formatTeamBasic));
+  const assignedFormatted = await Promise.all(assignedTeams.slice(0, 20).map(formatTeamBasic));
+
+  const recentActivity = await db
+    .select()
+    .from(activityLogsTable)
+    .where(eq(activityLogsTable.userId, userId))
+    .orderBy(desc(activityLogsTable.createdAt))
+    .limit(10);
+
+  const activityWithUsers = await Promise.all(recentActivity.map(formatActivityLog));
 
   return {
-    users: userStats,
-    teams: teamStats,
-    submissions: submissionStats,
-    timestamp: new Date(),
+    totalTeams: allTeams.length,
+    unassignedTeams: unassignedTeams.length,
+    totalStudents: allStudents.length,
+    studentsWithoutTeams: studentsWithoutTeams.length,
+    totalSupervisors: allSupervisors.length,
+    teamsPerPhase: { proposal: proposalTeams, progress: progressTeams, final: finalTeams },
+    supervisorWorkload,
+    allTeamsList: allTeamsFormatted,
+    unassignedTeamsList: unassignedFormatted,
+    assignedTeamsList: assignedFormatted,
+    studentsWithoutTeamsList: studentsWithoutTeams,
+    recentActivity: activityWithUsers,
   };
+}
+
+// ============ Activity Logs ============
+
+/**
+ * Get recent activity logs for coordinator
+ */
+export async function getActivityLogs(userId: number, limit: number = 50): Promise<any[]> {
+  const logs = await db
+    .select()
+    .from(activityLogsTable)
+    .where(eq(activityLogsTable.userId, userId))
+    .orderBy(desc(activityLogsTable.createdAt))
+    .limit(limit);
+
+  return Promise.all(logs.map(formatActivityLog));
 }

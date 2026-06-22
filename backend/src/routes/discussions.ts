@@ -1,8 +1,6 @@
 import { Router } from "express";
 import type { IRouter } from "express";
 import { z } from "zod/v4";
-import { db, usersTable, teamsTable } from "@workspace/db";
-import { eq } from "@workspace/db";
 import { requireAuth, requireRole } from "../lib/session";
 import { logActivity } from "../lib/notify";
 import {
@@ -15,9 +13,24 @@ import {
   checkScheduleConflicts,
   updateDiscussionSchedule,
   deleteDiscussionSchedule,
+  getTeamsWithSupervisors,
+  getSupervisorsForScheduling,
 } from "../services/discussion-scheduling";
 
 const router: IRouter = Router();
+
+// ============ Validation Schemas ============
+
+function handleServiceError(res: any, error: unknown) {
+  if (error instanceof Error) {
+    const message = error.message || "Internal server error";
+    res.status(400).json({ error: message });
+    return;
+  }
+
+  console.error(error);
+  res.status(500).json({ error: "Internal server error" });
+}
 
 // ============ Validation Schemas ============
 
@@ -56,7 +69,7 @@ router.get("/discussions", requireAuth, async (req, res): Promise<void> => {
 
     res.json({ schedules: filtered, settings });
   } catch (error: any) {
-    res.status(500).json({ error: error.message || "Failed to load discussion schedules" });
+    handleServiceError(res, error);
   }
 });
 
@@ -68,27 +81,9 @@ router.post("/discussions/generate", requireAuth, requireRole("coordinator"), as
   try {
     const parsed = generateRequestSchema.parse(req.body);
 
-    // Load all teams with supervisor information
-    const allTeams = await db.select().from(teamsTable);
-    const teamsWithSupervisor = await Promise.all(
-      allTeams.map(async (team) => {
-        const [supervisor] = team.supervisorId
-          ? await db.select().from(usersTable).where(eq(usersTable.id, team.supervisorId))
-          : [null];
-        return {
-          ...team,
-          supervisorId: team.supervisorId,
-          supervisorName: supervisor?.name ?? "",
-          supervisorEmail: supervisor?.email ?? "",
-        };
-      }),
-    );
-
-    // Load supervisors (filter by includedSupervisorIds if provided)
-    const allSupervisors = (await db.select().from(usersTable)).filter((user) => user.role === "supervisor");
-    const supervisors = parsed.includedSupervisorIds?.length
-      ? allSupervisors.filter((sup) => parsed.includedSupervisorIds!.includes(sup.id))
-      : allSupervisors;
+    // Load teams and supervisors
+    const teamsWithSupervisor = await getTeamsWithSupervisors(parsed.includedTeamIds);
+    const supervisors = await getSupervisorsForScheduling(parsed.includedSupervisorIds);
 
     // Build the schedule
     const result = await buildDiscussionSchedule(teamsWithSupervisor, supervisors, parsed as DiscussionSettingsInput);
@@ -102,8 +97,7 @@ router.post("/discussions/generate", requireAuth, requireRole("coordinator"), as
     await logActivity("discussion_schedule_generated", "Generated a new discussion schedule.", req.user!.id);
     res.status(201).json({ schedules, warnings: result.warnings });
   } catch (error: any) {
-    const message = error?.message || "Unable to generate schedule.";
-    res.status(400).json({ error: message });
+    handleServiceError(res, error);
   }
 });
 
@@ -167,7 +161,7 @@ router.put("/discussions/:id", requireAuth, requireRole("coordinator"), async (r
     await logActivity("discussion_schedule_updated", "Updated a discussion session.", req.user!.id);
     res.json({ schedule: updated, schedules });
   } catch (error: any) {
-    res.status(400).json({ error: error?.message || "Failed to update schedule." });
+    handleServiceError(res, error);
   }
 });
 
@@ -189,7 +183,7 @@ router.delete("/discussions/:id", requireAuth, requireRole("coordinator"), async
 
     res.json({ message: "Schedule removed" });
   } catch (error: any) {
-    res.status(500).json({ error: error?.message || "Failed to delete schedule" });
+    handleServiceError(res, error);
   }
 });
 

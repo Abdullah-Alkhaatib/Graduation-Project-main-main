@@ -208,3 +208,133 @@ export async function updateSubmissionStatus(submissionId: number, status: "appr
 export async function deleteSubmission(submissionId: number): Promise<void> {
   await db.delete(submissionsTable).where(eq(submissionsTable.id, submissionId));
 }
+
+// ============ Permission & Validation ============
+
+/**
+ * Validate if user can submit for a task
+ */
+export async function validateStudentCanSubmit(taskId: number, userId: number): Promise<{ valid: boolean; error?: string }> {
+  const [task] = await db.select().from(tasksTable).where(eq(tasksTable.id, taskId));
+  if (!task) {
+    return { valid: false, error: "Task not found" };
+  }
+
+  const [membership] = await db.select().from(teamMembersTable).where(eq(teamMembersTable.userId, userId));
+  if (!membership || membership.teamId !== task.teamId) {
+    return { valid: false, error: "You are not allowed to submit this task" };
+  }
+
+  const [team] = await db.select().from(teamsTable).where(eq(teamsTable.id, task.teamId));
+  if (!team || !team.supervisorId) {
+    return { valid: false, error: "Your team no longer has a supervisor, so task submission is disabled" };
+  }
+
+  if (!isTaskVisibleForSupervisor(task, team.supervisorId)) {
+    return { valid: false, error: "This task belongs to a previous supervisor assignment and cannot be submitted now" };
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Upload and create submission (handles file storage and DB insert)
+ */
+export async function uploadSubmission(
+  taskId: number,
+  userId: number,
+  fileStream: NodeJS.ReadableStream,
+  fileName: string,
+  notes: string,
+): Promise<any> {
+  const fs = await import("node:fs");
+  const path_module = await import("node:path");
+  const { randomUUID } = await import("node:crypto");
+  const { pipeline } = await import("node:stream/promises");
+
+  const [task] = await db.select().from(tasksTable).where(eq(tasksTable.id, taskId));
+  if (!task) {
+    throw new Error("Task not found");
+  }
+
+  fs.mkdirSync(getUploadDir(), { recursive: true });
+
+  const storedName = `${randomUUID()}-${safeFileName(fileName)}`;
+  const storedPath = path_module.join(getUploadDir(), storedName);
+
+  await pipeline(fileStream, fs.createWriteStream(storedPath));
+
+  const fileUrl = `/uploads/submissions/${storedName}`;
+
+  const [sub] = await db
+    .insert(submissionsTable)
+    .values({
+      taskId,
+      submittedById: userId,
+      fileUrl,
+      notes,
+      status: "pending",
+    })
+    .returning();
+
+  await db.update(tasksTable).set({ status: "submitted" }).where(eq(tasksTable.id, taskId));
+
+  const [team] = await db.select().from(teamsTable).where(eq(teamsTable.id, task.teamId));
+  if (team?.supervisorId) {
+    await createNotification(team.supervisorId, "new_submission", `Team "${team.name}" submitted deliverable for task "${task.title}"`);
+  }
+  await logActivity("submission_created", `Submitted deliverable for task "${task.title}"`, userId, task.teamId);
+
+  return (await formatSubmissions([sub]))[0];
+}
+
+/**
+ * Create submission via direct link (without file upload)
+ */
+export async function createDirectSubmission(taskId: number, userId: number, fileUrl: string, notes: string): Promise<any> {
+  const [task] = await db.select().from(tasksTable).where(eq(tasksTable.id, taskId));
+  if (!task) {
+    throw new Error("Task not found");
+  }
+
+  const [sub] = await db
+    .insert(submissionsTable)
+    .values({ taskId, submittedById: userId, fileUrl, notes, status: "pending" })
+    .returning();
+
+  await db.update(tasksTable).set({ status: "submitted" }).where(eq(tasksTable.id, taskId));
+
+  const [team] = await db.select().from(teamsTable).where(eq(teamsTable.id, task.teamId));
+  if (team?.supervisorId) {
+    await createNotification(team.supervisorId, "new_submission", `Team "${team.name}" submitted deliverable for task "${task.title}"`);
+  }
+  await logActivity("submission_created", `Submitted deliverable for task "${task.title}"`, userId, task.teamId);
+
+  return (await formatSubmissions([sub]))[0];
+}
+
+/**
+ * Review submission with feedback and status
+ */
+export async function reviewSubmission(submissionId: number, status: "approved" | "rejected", feedback: string, supervisorId: number): Promise<any> {
+  const [sub] = await db.select().from(submissionsTable).where(eq(submissionsTable.id, submissionId));
+  if (!sub) {
+    throw new Error("Submission not found");
+  }
+
+  const [updated] = await db
+    .update(submissionsTable)
+    .set({ status, feedback })
+    .where(eq(submissionsTable.id, submissionId))
+    .returning();
+
+  const [task] = await db.select().from(tasksTable).where(eq(tasksTable.id, sub.taskId));
+  if (status === "approved") {
+    await db.update(tasksTable).set({ status: "reviewed" }).where(eq(tasksTable.id, sub.taskId));
+  }
+
+  await createNotification(sub.submittedById, "submission_reviewed", `Your submission for "${task?.title}" has been ${status}`);
+  await logActivity("submission_reviewed", `Submission for "${task?.title}" marked as ${status}`, supervisorId, task?.teamId);
+
+  return (await formatSubmissions([updated]))[0];
+}

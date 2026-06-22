@@ -1,109 +1,93 @@
-import { db, phasesTable, teamsTable, usersTable } from "@workspace/db";
-import { eq } from "@workspace/db";
-import { logActivity } from "../lib/notify";
+import { db, teamsTable, projectPhasesTable, teamMembersTable } from "@workspace/db";
+import { eq, and } from "@workspace/db";
+import { logActivity, createNotification } from "../lib/notify";
 
-// ============ Phase Types ============
+// ============ Constants ============
 
-export type Phase = "proposal" | "progress" | "final";
-export type PhaseStatus = "pending" | "submitted" | "approved" | "rejected";
+export const PHASE_ORDER: ("proposal" | "progress" | "final")[] = ["proposal", "progress", "final"];
 
-// ============ Queries ============
+// ============ Formatting ============
 
 /**
- * Get phases for team
+ * Format phase with team details
  */
-export async function getTeamPhases(teamId: number): Promise<any[]> {
-  const phases = await db.select().from(phasesTable).where(eq(phasesTable.teamId, teamId));
+export async function formatPhase(phase: typeof projectPhasesTable.$inferSelect) {
+  const [team] = await db.select().from(teamsTable).where(eq(teamsTable.id, phase.teamId));
+  return { ...phase, team };
+}
 
-  return Promise.all(
-    phases.map(async (phase) => {
-      const [reviewer] = phase.reviewedBy ? await db.select({ id: usersTable.id, name: usersTable.name }).from(usersTable).where(eq(usersTable.id, phase.reviewedBy)) : [null];
-      return { ...phase, reviewer };
-    }),
-  );
+// ============ Phase Queries ============
+
+/**
+ * Get all phases
+ */
+export async function getAllPhases() {
+  const phases = await db.select().from(projectPhasesTable);
+  return Promise.all(phases.map(formatPhase));
 }
 
 /**
- * Get phase by ID
+ * Get active phase for team
  */
-export async function getPhaseById(phaseId: number): Promise<any | null> {
-  const [phase] = await db.select().from(phasesTable).where(eq(phasesTable.id, phaseId));
-  if (!phase) return null;
-
-  const [reviewer] = phase.reviewedBy ? await db.select({ id: usersTable.id, name: usersTable.name }).from(usersTable).where(eq(usersTable.id, phase.reviewedBy)) : [null];
-  return { ...phase, reviewer };
+export async function getActivePhaseForTeam(teamId: number) {
+  const [phase] = await db.select().from(projectPhasesTable).where(and(eq(projectPhasesTable.teamId, teamId), eq(projectPhasesTable.status, "in_progress")));
+  if (!phase) {
+    throw new Error("No active phase found");
+  }
+  return formatPhase(phase);
 }
 
 // ============ Phase Operations ============
 
 /**
- * Submit phase
+ * Advance team to next phase
  */
-export async function submitPhase(phaseId: number, submittedBy: number, submissionData?: any): Promise<any> {
-  const [phase] = await db.select().from(phasesTable).where(eq(phasesTable.id, phaseId));
-  if (!phase) throw new Error("Phase not found");
+export async function advanceTeamPhase(teamId: number, userId: number, userRole: string) {
+  // Check permissions
+  if (userRole !== "supervisor" && userRole !== "coordinator") {
+    throw new Error("Only supervisors and coordinators can advance phases");
+  }
 
-  const [updated] = await db
-    .update(phasesTable)
-    .set({
-      status: "submitted",
-      submittedAt: new Date(),
-      submittedBy,
-      submissionData: submissionData ? JSON.stringify(submissionData) : null,
-    })
-    .where(eq(phasesTable.id, phaseId))
-    .returning();
+  // Get team
+  const [team] = await db.select().from(teamsTable).where(eq(teamsTable.id, teamId));
+  if (!team) {
+    throw new Error("Team not found");
+  }
 
-  const [team] = await db.select().from(teamsTable).where(eq(teamsTable.id, phase.teamId));
-  await logActivity("phase_submitted", `${phase.phase} phase submitted for team "${team?.name}"`, submittedBy, phase.teamId);
+  // Determine next phase
+  const currentPhaseIndex = team.currentPhase ? PHASE_ORDER.indexOf(team.currentPhase) : -1;
+  const nextIndex = currentPhaseIndex + 1;
+  if (nextIndex >= PHASE_ORDER.length) {
+    throw new Error("Team is already in the final phase");
+  }
 
-  return getPhaseById(phaseId);
-}
+  const nextPhase = PHASE_ORDER[nextIndex];
 
-/**
- * Approve phase
- */
-export async function approvePhase(phaseId: number, approvedBy: number, feedback?: string): Promise<any> {
-  const [phase] = await db.select().from(phasesTable).where(eq(phasesTable.id, phaseId));
-  if (!phase) throw new Error("Phase not found");
+  // Mark current phase as completed
+  if (team.currentPhase) {
+    await db.update(projectPhasesTable)
+      .set({ status: "completed", completedAt: new Date() })
+      .where(and(eq(projectPhasesTable.teamId, teamId), eq(projectPhasesTable.phase, team.currentPhase)));
+  }
 
-  const [updated] = await db
-    .update(phasesTable)
-    .set({
-      status: "approved",
-      reviewedAt: new Date(),
-      reviewedBy: approvedBy,
-      reviewFeedback: feedback,
-    })
-    .where(eq(phasesTable.id, phaseId))
-    .returning();
+  // Create new phase record
+  const [newPhase] = await db.insert(projectPhasesTable).values({
+    teamId,
+    phase: nextPhase,
+    status: "in_progress",
+  }).returning();
 
-  const [team] = await db.select().from(teamsTable).where(eq(teamsTable.id, phase.teamId));
-  await logActivity("phase_approved", `${phase.phase} phase approved for team "${team?.name}"`, approvedBy, phase.teamId);
+  // Update team's current phase
+  await db.update(teamsTable).set({ currentPhase: nextPhase }).where(eq(teamsTable.id, teamId));
 
-  return getPhaseById(phaseId);
-}
+  // Notify team members
+  const members = await db.select().from(teamMembersTable).where(eq(teamMembersTable.teamId, teamId));
+  for (const m of members) {
+    await createNotification(m.userId, "phase_advanced", `Your project phase has advanced to "${nextPhase}"`);
+  }
 
-/**
- * Reject phase
- */
-export async function rejectPhase(phaseId: number, rejectedBy: number, feedback?: string): Promise<any> {
-  const [phase] = await db.select().from(phasesTable).where(eq(phasesTable.id, phaseId));
-  if (!phase) throw new Error("Phase not found");
+  // Log activity
+  await logActivity("phase_advanced", `Team "${team.name}" advanced to ${nextPhase} phase`, userId, teamId);
 
-  const [updated] = await db
-    .update(phasesTable)
-    .set({
-      status: "rejected",
-      reviewedAt: new Date(),
-      reviewedBy: rejectedBy,
-      reviewFeedback: feedback,
-    })
-    .where(eq(phasesTable.id, phaseId))
-    .returning();
-
-  const [team] = await db.select().from(teamsTable).where(eq(teamsTable.id, phase.teamId));
-  await logActivity("phase_rejected", `${phase.phase} phase rejected for team "${team?.name}"`, rejectedBy, phase.teamId);
-
-  return getPhaseById(phaseId);
+  return formatPhase(newPhase);
 }

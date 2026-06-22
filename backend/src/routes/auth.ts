@@ -32,6 +32,18 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   }
 });
 
+
+function handleServiceError(res: any, error: unknown) {
+  if (error instanceof Error) {
+    const message = error.message || "Internal server error";
+    res.status(400).json({ error: message });
+    return;
+  }
+
+  console.error(error);
+  res.status(500).json({ error: "Internal server error" });
+}
+
 /**
  * POST /auth/login
  * Authenticate user and start session
@@ -52,8 +64,8 @@ router.post("/auth/login", async (req, res): Promise<void> => {
       user: result.user,
       message: result.message,
     });
-  } catch (error: any) {
-    res.status(401).json({ error: error.message || "Login failed" });
+  } catch (error) {
+    handleServiceError(res, error);
   }
 });
 
@@ -79,8 +91,8 @@ router.get("/auth/me", requireAuth, async (req, res): Promise<void> => {
       return;
     }
     res.json(user);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message || "Failed to fetch user" });
+  } catch (error) {
+    handleServiceError(res, error);
   }
 });
 
@@ -110,10 +122,9 @@ router.put("/auth/me", requireAuth, async (req, res): Promise<void> => {
 
     const updated = await updateOfficeHours(req.user!.id, normalizedOfficeHours);
     res.json(updated);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message || "Failed to update office hours" });
+  } catch (error) {
+    handleServiceError(res, error);
   }
 });
-
 export default router;
 

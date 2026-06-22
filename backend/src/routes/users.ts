@@ -1,87 +1,78 @@
 import { Router } from "express";
 import type { IRouter } from "express";
-import { db, usersTable, teamsTable } from "@workspace/db";
-import { eq, ilike, and } from "@workspace/db";
 import { requireAuth, requireRole } from "../lib/session";
-import { logActivity } from "../lib/notify";
+
+import { getUsers, getUserById, deleteUser } from "../services/users";
 
 const router: IRouter = Router();
 
+function handleServiceError(res: any, error: unknown) {
+  if (error instanceof Error) {
+    const message = error.message || "Internal server error";
+    res.status(400).json({ error: message });
+    return;
+  }
+
+  console.error(error);
+  res.status(500).json({ error: "Internal server error" });
+}
+
+/**
+ * GET /users
+ * Get all users with optional filtering by role and/or name search
+ */
 router.get("/users", requireAuth, async (req, res): Promise<void> => {
-  const { role, search } = req.query as { role?: string; search?: string };
-
-  let query = db.select({
-    id: usersTable.id,
-    name: usersTable.name,
-    email: usersTable.email,
-    role: usersTable.role,
-    createdAt: usersTable.createdAt,
-  }).from(usersTable);
-
-  const conditions = [];
-  if (role) conditions.push(eq(usersTable.role, role as "student" | "supervisor" | "coordinator"));
-  if (search) conditions.push(ilike(usersTable.name, `%${search}%`));
-
-  const users = conditions.length > 0
-    ? await query.where(and(...conditions))
-    : await query;
-
-  res.json(users);
+  try {
+    const { role, search } = req.query as { role?: string; search?: string };
+    const users = await getUsers({ role, search });
+    res.json(users);
+  } catch (error) {
+    handleServiceError(res, error);
+  }
 });
 
+/**
+ * GET /users/:id
+ * Get a specific user by ID
+ */
 router.get("/users/:id", requireAuth, async (req, res): Promise<void> => {
-  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-  const id = parseInt(raw, 10);
-  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  try {
+    const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const id = parseInt(raw, 10);
+    if (isNaN(id)) {
+      res.status(400).json({ error: "Invalid id" });
+      return;
+    }
 
-  const [user] = await db.select({
-    id: usersTable.id,
-    name: usersTable.name,
-    email: usersTable.email,
-    role: usersTable.role,
-    createdAt: usersTable.createdAt,
-  }).from(usersTable).where(eq(usersTable.id, id));
-
-  if (!user) { res.status(404).json({ error: "User not found" }); return; }
-  res.json(user);
+    const user = await getUserById(id);
+    if (!user) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+    res.json(user);
+  } catch (error) {
+    handleServiceError(res, error);
+  }
 });
 
+/**
+ * DELETE /users/:id
+ * Delete a supervisor user and unassign their teams (coordinator only)
+ */
 router.delete("/users/:id", requireAuth, requireRole("coordinator"), async (req, res): Promise<void> => {
-  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-  const id = parseInt(raw, 10);
-  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  try {
+    const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const id = parseInt(raw, 10);
+    if (isNaN(id)) {
+      res.status(400).json({ error: "Invalid id" });
+      return;
+    }
 
-  const [supervisor] = await db.select({
-    id: usersTable.id,
-    name: usersTable.name,
-    role: usersTable.role,
-  }).from(usersTable).where(eq(usersTable.id, id));
-
-  if (!supervisor) {
-    res.status(404).json({ error: "User not found" });
-    return;
+    await deleteUser(id, req.user!.id);
+    res.json({ message: "User deleted successfully" });
+  } catch (error) {
+    handleServiceError(res, error);
   }
-
-  if (supervisor.role !== "supervisor") {
-    res.status(400).json({ error: "Only supervisor accounts can be deleted through this endpoint." });
-    return;
-  }
-
-  await db.update(teamsTable)
-    .set({ supervisorId: null, status: "active" })
-    .where(eq(teamsTable.supervisorId, id));
-
-  await db.delete(usersTable).where(eq(usersTable.id, id));
-
-  await logActivity(
-    "supervisor_deleted",
-    `Coordinator deleted supervisor ${supervisor.name} from the system and unassigned any managed teams.`,
-    req.user!.id,
-    null
-  );
-
-  res.json({ message: "Supervisor deleted successfully" });
 });
-
 export default router;
 

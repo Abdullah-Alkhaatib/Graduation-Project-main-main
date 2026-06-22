@@ -1,5 +1,5 @@
 import { db, notificationsTable } from "@workspace/db";
-import { eq } from "@workspace/db";
+import { eq, and } from "@workspace/db";
 
 // ============ Queries ============
 
@@ -25,7 +25,10 @@ export async function getUnreadCount(userId: number): Promise<number> {
  * Mark notification as read
  */
 export async function markAsRead(notificationId: number, userId: number): Promise<void> {
-  await db.update(notificationsTable).set({ isRead: true }).where(eq(notificationsTable.id, notificationId));
+  await db
+    .update(notificationsTable)
+    .set({ isRead: true })
+    .where(and(eq(notificationsTable.id, notificationId), eq(notificationsTable.userId, userId)));
 }
 
 /**
@@ -47,4 +50,18 @@ export async function deleteNotification(notificationId: number): Promise<void> 
  */
 export async function deleteAllNotifications(userId: number): Promise<void> {
   await db.delete(notificationsTable).where(eq(notificationsTable.userId, userId));
+}
+
+/**
+ * Route-facing alias used by notifications route
+ */
+export async function markAllNotificationsAsRead(userId: number): Promise<void> {
+  await markAllAsRead(userId);
+}
+
+/**
+ * Route-facing alias used by notifications route
+ */
+export async function markNotificationAsRead(notificationId: number, userId: number): Promise<void> {
+  await markAsRead(notificationId, userId);
 }
