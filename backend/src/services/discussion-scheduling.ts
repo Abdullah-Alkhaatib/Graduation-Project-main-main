@@ -146,11 +146,11 @@ function timeRangeOverlaps(
   const bEnd = parseTimeToMinutes(endB);
   return aStart < bEnd && bStart < aEnd;
 }
-
+//
 function buildPairKey(examiner1Id: number, examiner2Id: number) {
   return [examiner1Id, examiner2Id].sort((a, b) => a - b).join("_");
 }
-
+//
 function getConsecutivePenalty(
   examinerId: number,
   currentSlot: DiscussionScheduleSlot,
