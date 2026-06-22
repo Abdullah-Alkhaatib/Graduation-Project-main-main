@@ -45,6 +45,98 @@ async function promoteNextLeader(teamId: number, excludeUserId: number) {
   return nextLeader;
 }
 
+async function finalizeLeaveApproval(mainLeaveRequestId: number) {
+  const [mainRequest] = await db.select().from(invitationsTable).where(eq(invitationsTable.id, mainLeaveRequestId));
+  if (!mainRequest || !mainRequest.approvalTargetUserId) {
+    return { status: "missing" as const };
+  }
+
+  if (mainRequest.status !== "pending") {
+    return { status: mainRequest.status as "accepted" | "rejected" };
+  }
+
+  // Get all votes for this leave request
+  const votes = await db.select().from(invitationsTable).where(eq(invitationsTable.approvalForInvitationId, mainLeaveRequestId));
+  if (votes.length === 0) {
+    return { status: "pending" as const };
+  }
+
+  const [team] = await db.select().from(teamsTable).where(eq(teamsTable.id, mainRequest.teamId));
+  if (!team) {
+    return { status: "missing" as const };
+  }
+
+  const [leavingUser] = await db
+    .select({ id: usersTable.id, name: usersTable.name, email: usersTable.email, role: usersTable.role })
+    .from(usersTable)
+    .where(eq(usersTable.id, mainRequest.approvalTargetUserId));
+
+  // If any vote is rejected, reject the entire leave request
+  if (votes.some((vote) => vote.status === "rejected")) {
+    await db.update(invitationsTable).set({ status: "rejected" }).where(eq(invitationsTable.id, mainLeaveRequestId));
+    for (const vote of votes) {
+      if (vote.status === "pending") {
+        await db.update(invitationsTable).set({ status: "rejected" }).where(eq(invitationsTable.id, vote.id));
+      }
+    }
+
+    if (leavingUser) {
+      await createNotification(leavingUser.id, "leave_rejected", `Your request to leave team "${team.name}" was rejected by team members`);
+    }
+    await logActivity("leave_request_rejected", `${leavingUser?.name}'s leave request from team "${team.name}" was rejected`, leavingUser?.id, team.id);
+    return { status: "rejected" as const };
+  }
+
+  // Check if all votes are accepted
+  const allAccepted = votes.every((vote) => vote.status === "accepted");
+  if (!allAccepted) {
+    return { status: "pending" as const };
+  }
+
+  // All votes accepted - proceed with leaving
+  await db.update(invitationsTable).set({ status: "accepted" }).where(eq(invitationsTable.id, mainLeaveRequestId));
+
+  // Remove user from team
+  if (team.leaderId === mainRequest.approvalTargetUserId) {
+    // If leader is leaving, promote next leader
+    await promoteNextLeader(mainRequest.teamId, mainRequest.approvalTargetUserId);
+  }
+
+  await db.delete(teamMembersTable).where(and(eq(teamMembersTable.teamId, mainRequest.teamId), eq(teamMembersTable.userId, mainRequest.approvalTargetUserId)));
+
+  // Check if team is now empty
+  const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(teamMembersTable).where(eq(teamMembersTable.teamId, mainRequest.teamId));
+  const remaining = countResult?.count ?? 0;
+  if (remaining === 0) {
+    // Delete team and related data
+    const tasks = await db.select().from(tasksTable).where(eq(tasksTable.teamId, mainRequest.teamId));
+    for (const t of tasks) {
+      await db.delete(submissionsTable).where(eq(submissionsTable.taskId, t.id));
+    }
+    await db.delete(tasksTable).where(eq(tasksTable.teamId, mainRequest.teamId));
+    await db.delete(meetingsTable).where(eq(meetingsTable.teamId, mainRequest.teamId));
+    await db.delete(invitationsTable).where(eq(invitationsTable.teamId, mainRequest.teamId));
+    await db.delete(teamsTable).where(eq(teamsTable.id, mainRequest.teamId));
+    await logActivity("team_deleted", `Team "${team.name}" deleted because no members left`, leavingUser?.id, mainRequest.teamId);
+  }
+
+  // Notify leaving user
+  if (leavingUser) {
+    await createNotification(leavingUser.id, "leave_approved", `Your request to leave team "${team.name}" was approved. You have been removed from the team.`);
+  }
+
+  // Notify other members
+  const allTeamMembers = await db.select().from(teamMembersTable).where(eq(teamMembersTable.teamId, mainRequest.teamId));
+  const otherMembers = allTeamMembers.filter((m) => m.userId !== mainRequest.approvalTargetUserId);
+  for (const member of otherMembers) {
+    await createNotification(member.userId, "member_left", `${leavingUser?.name} left the team.`);
+  }
+
+  await logActivity("team_left", `${leavingUser?.name} left team "${team.name}" after team approval`, leavingUser?.id, mainRequest.teamId);
+
+  return { status: "accepted" as const };
+}
+
 router.get("/teams", requireAuth, async (req, res): Promise<void> => {
   const { status, search } = req.query as { status?: string; search?: string };
   let teamsQuery = db.select().from(teamsTable);
@@ -298,6 +390,80 @@ router.post("/teams/:id/leave", requireAuth, async (req, res): Promise<void> => 
   const [membership] = await db.select().from(teamMembersTable).where(and(eq(teamMembersTable.teamId, id), eq(teamMembersTable.userId, req.user!.id)));
   if (!membership) { res.status(404).json({ error: "You are not in this team" }); return; }
 
+  // Get team member count
+  const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(teamMembersTable).where(eq(teamMembersTable.teamId, id));
+  const memberCount = countResult?.count ?? 0;
+
+  // If 4 or more members, require approval from other members
+  if (memberCount >= 4) {
+    // Check if there's already a pending leave request
+    const existingRequests = await db
+      .select()
+      .from(invitationsTable)
+      .where(
+        and(
+          eq(invitationsTable.teamId, id),
+          eq(invitationsTable.status, "pending")
+        )
+      );
+
+    const existingRequest = existingRequests.find(
+      (r) => r.approvalTargetUserId === req.user!.id && r.requiresTeamApproval === true
+    );
+
+    if (existingRequest) {
+      res.status(400).json({ error: "You already have a pending leave request" });
+      return;
+    }
+
+    // Create the main leave request invitation
+    const [mainLeaveRequest] = await db.insert(invitationsTable).values({
+      teamId: id,
+      invitedUserId: req.user!.id,
+      invitedByUserId: req.user!.id,
+      status: "pending",
+      requiresTeamApproval: true,
+      approvalTargetUserId: req.user!.id,
+      teamApproved: null,
+    }).returning();
+
+    // Get other team members
+    const allMembers = await db
+      .select()
+      .from(teamMembersTable)
+      .where(eq(teamMembersTable.teamId, id));
+    
+    const otherMembers = allMembers.filter((m) => m.userId !== req.user!.id);
+
+    // Create individual approval invitations for each team member and send notifications
+    for (const member of otherMembers) {
+      // Create approval invitation for this member
+      const [approvalInvitation] = await db.insert(invitationsTable).values({
+        teamId: id,
+        invitedUserId: member.userId,
+        invitedByUserId: req.user!.id,
+        status: "pending",
+        requiresTeamApproval: true,
+        approvalForInvitationId: mainLeaveRequest.id,
+        approvalTargetUserId: req.user!.id,
+      }).returning();
+
+      // Send notification with link to the approval invitation
+      await createNotification(
+        member.userId,
+        "leave_request",
+        `${req.user!.name} requested to leave the team "${team.name}". Do you approve?`,
+        approvalInvitation.id,
+        "leave_request"
+      );
+    }
+
+    await logActivity("leave_request_sent", `${req.user!.name} requested to leave team "${team.name}"`, req.user!.id, id);
+    res.status(202).json({ message: "Leave request sent. Waiting for team approval.", requestId: mainLeaveRequest.id });
+    return;
+  }
+
+  // If less than 4 members, allow immediate leave
   if (team.leaderId === req.user!.id) {
     const nextLeader = await promoteNextLeader(id, req.user!.id);
     if (nextLeader) {
@@ -309,8 +475,8 @@ router.post("/teams/:id/leave", requireAuth, async (req, res): Promise<void> => 
   await db.delete(teamMembersTable).where(and(eq(teamMembersTable.teamId, id), eq(teamMembersTable.userId, req.user!.id)));
   await logActivity("team_left", `${req.user!.name} left team "${team.name}"`, req.user!.id, id);
   // If no members remain, delete related records and the team itself
-  const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(teamMembersTable).where(eq(teamMembersTable.teamId, id));
-  const remaining = countResult?.count ?? 0;
+  const [newCountResult] = await db.select({ count: sql<number>`count(*)::int` }).from(teamMembersTable).where(eq(teamMembersTable.teamId, id));
+  const remaining = newCountResult?.count ?? 0;
   if (remaining === 0) {
     // Delete submissions for tasks belonging to this team
     const tasks = await db.select().from(tasksTable).where(eq(tasksTable.teamId, id));
@@ -477,6 +643,59 @@ router.post("/teams/add-user-by-gender", requireAuth, requireRole("coordinator")
   await db.insert(teamMembersTable).values({ teamId: team.id, userId: targetUserId, role: "leader" });
   await logActivity("team_created", `Team "${teamName}" created by coordinator (auto gender)`, req.user!.id, team.id);
   res.status(201).json({ message: "New auto gender team created and user added", teamId: team.id });
+});
+
+// Get pending leave requests for a team
+router.get("/teams/:id/leave-requests", requireAuth, async (req, res): Promise<void> => {
+  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const teamId = parseInt(raw, 10);
+  if (isNaN(teamId)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const [team] = await db.select().from(teamsTable).where(eq(teamsTable.id, teamId));
+  if (!team) { res.status(404).json({ error: "Team not found" }); return; }
+
+  // Check if user is in this team
+  const [membership] = await db.select().from(teamMembersTable).where(and(eq(teamMembersTable.teamId, teamId), eq(teamMembersTable.userId, req.user!.id)));
+  if (!membership) { res.status(403).json({ error: "You are not in this team" }); return; }
+
+  // Get all pending leave requests for this team (main requests only)
+  const allLeaveRequests = await db
+    .select()
+    .from(invitationsTable)
+    .where(
+      and(
+        eq(invitationsTable.teamId, teamId),
+        eq(invitationsTable.status, "pending")
+      )
+    );
+
+  const leaveRequests = allLeaveRequests.filter(
+    (lr) => lr.approvalTargetUserId !== null && lr.approvalTargetUserId !== undefined && lr.approvalForInvitationId === null
+  );
+
+  // Format requests with user info
+  const formatted = await Promise.all(
+    leaveRequests.map(async (lr) => {
+      const [user] = await db
+        .select({ id: usersTable.id, name: usersTable.name, email: usersTable.email })
+        .from(usersTable)
+        .where(eq(usersTable.id, lr.approvalTargetUserId!));
+      
+      // Count votes for this leave request
+      const allVotes = await db
+        .select()
+        .from(invitationsTable)
+        .where(eq(invitationsTable.approvalForInvitationId, lr.id));
+      
+      const acceptedVotes = allVotes.filter((v) => v.status === "accepted").length;
+      const rejectedVotes = allVotes.filter((v) => v.status === "rejected").length;
+      const pendingVotes = allVotes.filter((v) => v.status === "pending").length;
+
+      return { ...lr, user: user || null, votes: { accepted: acceptedVotes, rejected: rejectedVotes, pending: pendingVotes } };
+    })
+  );
+
+  res.json(formatted);
 });
 
 export default router;

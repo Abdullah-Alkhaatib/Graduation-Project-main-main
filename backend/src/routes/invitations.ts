@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { IRouter } from "express";
-import { db, usersTable, teamsTable, invitationsTable, teamMembersTable, studentProfilesTable } from "@workspace/db";
+import { db, usersTable, teamsTable, invitationsTable, teamMembersTable, studentProfilesTable, tasksTable, meetingsTable, submissionsTable } from "@workspace/db";
 import { eq, and, sql } from "@workspace/db";
 import { requireAuth } from "../lib/session";
 import { createNotification, logActivity } from "../lib/notify";
@@ -125,6 +125,124 @@ async function finalizeTeamApproval(mainInvitationId: number) {
   return { status: "team_approved" as const };
 }
 
+async function promoteNextLeader(teamId: number, excludeUserId: number) {
+  const remainingMembers = await db
+    .select()
+    .from(teamMembersTable)
+    .where(eq(teamMembersTable.teamId, teamId));
+
+  const candidates = remainingMembers
+    .filter((member) => member.userId !== excludeUserId)
+    .sort((a, b) => new Date(a.joinedAt).getTime() - new Date(b.joinedAt).getTime());
+
+  const nextLeader = candidates[0];
+  if (!nextLeader) {
+    return null;
+  }
+
+  await db.update(teamMembersTable)
+    .set({ role: "leader" })
+    .where(and(eq(teamMembersTable.teamId, teamId), eq(teamMembersTable.userId, nextLeader.userId)));
+
+  await db.update(teamsTable)
+    .set({ leaderId: nextLeader.userId })
+    .where(eq(teamsTable.id, teamId));
+
+  return nextLeader;
+}
+
+async function finalizeLeaveApproval(mainLeaveRequestId: number) {
+  const [mainRequest] = await db.select().from(invitationsTable).where(eq(invitationsTable.id, mainLeaveRequestId));
+  if (!mainRequest || !mainRequest.approvalTargetUserId) {
+    return { status: "missing" as const };
+  }
+
+  if (mainRequest.status !== "pending") {
+    return { status: mainRequest.status as "accepted" | "rejected" };
+  }
+
+  // Get all votes for this leave request
+  const votes = await db.select().from(invitationsTable).where(eq(invitationsTable.approvalForInvitationId, mainLeaveRequestId));
+  if (votes.length === 0) {
+    return { status: "pending" as const };
+  }
+
+  const [team] = await db.select().from(teamsTable).where(eq(teamsTable.id, mainRequest.teamId));
+  if (!team) {
+    return { status: "missing" as const };
+  }
+
+  const [leavingUser] = await db
+    .select({ id: usersTable.id, name: usersTable.name, email: usersTable.email, role: usersTable.role })
+    .from(usersTable)
+    .where(eq(usersTable.id, mainRequest.approvalTargetUserId));
+
+  // If any vote is rejected, reject the entire leave request
+  if (votes.some((vote) => vote.status === "rejected")) {
+    await db.update(invitationsTable).set({ status: "rejected" }).where(eq(invitationsTable.id, mainLeaveRequestId));
+    for (const vote of votes) {
+      if (vote.status === "pending") {
+        await db.update(invitationsTable).set({ status: "rejected" }).where(eq(invitationsTable.id, vote.id));
+      }
+    }
+
+    if (leavingUser) {
+      await createNotification(leavingUser.id, "leave_rejected", `Your request to leave team "${team.name}" was rejected by team members`);
+    }
+    await logActivity("leave_request_rejected", `${leavingUser?.name}'s leave request from team "${team.name}" was rejected`, leavingUser?.id, team.id);
+    return { status: "rejected" as const };
+  }
+
+  // Check if all votes are accepted
+  const allAccepted = votes.every((vote) => vote.status === "accepted");
+  if (!allAccepted) {
+    return { status: "pending" as const };
+  }
+
+  // All votes accepted - proceed with leaving
+  await db.update(invitationsTable).set({ status: "accepted" }).where(eq(invitationsTable.id, mainLeaveRequestId));
+
+  // Remove user from team
+  if (team.leaderId === mainRequest.approvalTargetUserId) {
+    // If leader is leaving, promote next leader
+    await promoteNextLeader(mainRequest.teamId, mainRequest.approvalTargetUserId);
+  }
+
+  await db.delete(teamMembersTable).where(and(eq(teamMembersTable.teamId, mainRequest.teamId), eq(teamMembersTable.userId, mainRequest.approvalTargetUserId)));
+
+  // Check if team is now empty
+  const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(teamMembersTable).where(eq(teamMembersTable.teamId, mainRequest.teamId));
+  const remaining = countResult?.count ?? 0;
+  if (remaining === 0) {
+    // Delete team and related data
+    const tasks = await db.select().from(tasksTable).where(eq(tasksTable.teamId, mainRequest.teamId));
+    for (const t of tasks) {
+      await db.delete(submissionsTable).where(eq(submissionsTable.taskId, t.id));
+    }
+    await db.delete(tasksTable).where(eq(tasksTable.teamId, mainRequest.teamId));
+    await db.delete(meetingsTable).where(eq(meetingsTable.teamId, mainRequest.teamId));
+    await db.delete(invitationsTable).where(eq(invitationsTable.teamId, mainRequest.teamId));
+    await db.delete(teamsTable).where(eq(teamsTable.id, mainRequest.teamId));
+    await logActivity("team_deleted", `Team "${team.name}" deleted because no members left`, leavingUser?.id, mainRequest.teamId);
+  }
+
+  // Notify leaving user
+  if (leavingUser) {
+    await createNotification(leavingUser.id, "leave_approved", `Your request to leave team "${team.name}" was approved. You have been removed from the team.`);
+  }
+
+  // Notify other members
+  const allTeamMembers = await db.select().from(teamMembersTable).where(eq(teamMembersTable.teamId, mainRequest.teamId));
+  const otherMembers = allTeamMembers.filter((m) => m.userId !== mainRequest.approvalTargetUserId);
+  for (const member of otherMembers) {
+    await createNotification(member.userId, "member_left", `${leavingUser?.name} left the team.`);
+  }
+
+  await logActivity("team_left", `${leavingUser?.name} left team "${team.name}" after team approval`, leavingUser?.id, mainRequest.teamId);
+
+  return { status: "accepted" as const };
+}
+
 router.get("/invitations", requireAuth, async (req, res): Promise<void> => {
   const invitations = await db.select().from(invitationsTable).where(eq(invitationsTable.invitedUserId, req.user!.id));
   const formatted = (await Promise.all(invitations.map(formatInvitation))).filter((inv): inv is NonNullable<typeof inv> => Boolean(inv));
@@ -240,13 +358,25 @@ router.post("/invitations/:id/accept", requireAuth, async (req, res): Promise<vo
   if (inv.approvalForInvitationId) {
     if (inv.invitedUserId !== req.user!.id) { res.status(404).json({ error: "Invitation not found" }); return; }
     await db.update(invitationsTable).set({ status: "accepted" }).where(eq(invitationsTable.id, id));
-    const finalized = await finalizeTeamApproval(inv.approvalForInvitationId);
+    
+    // Check if this is a leave request vote or a join invitation vote
+    const [mainRequest] = await db.select().from(invitationsTable).where(eq(invitationsTable.id, inv.approvalForInvitationId));
+    
+    let finalized;
+    if (mainRequest?.approvalTargetUserId) {
+      // This is a leave request vote
+      finalized = await finalizeLeaveApproval(inv.approvalForInvitationId);
+    } else {
+      // This is a join invitation vote
+      finalized = await finalizeTeamApproval(inv.approvalForInvitationId);
+    }
+    
     if (finalized.status === "accepted") {
-      res.json({ message: "Vote recorded. Invitation accepted by team." });
+      res.json({ message: "Vote recorded. Request accepted by team." });
       return;
     }
     if (finalized.status === "rejected") {
-      res.json({ message: "Vote recorded. Invitation rejected by team." });
+      res.json({ message: "Vote recorded. Request rejected by team." });
       return;
     }
     res.json({ message: "Vote recorded" });
@@ -324,9 +454,21 @@ router.post("/invitations/:id/reject", requireAuth, async (req, res): Promise<vo
     if (inv.status !== "pending") { res.status(400).json({ error: "Invitation already responded to" }); return; }
 
     await db.update(invitationsTable).set({ status: "rejected" }).where(eq(invitationsTable.id, id));
-    const finalized = await finalizeTeamApproval(inv.approvalForInvitationId);
+    
+    // Check if this is a leave request vote or a join invitation vote
+    const [mainRequest] = await db.select().from(invitationsTable).where(eq(invitationsTable.id, inv.approvalForInvitationId));
+    
+    let finalized;
+    if (mainRequest?.approvalTargetUserId) {
+      // This is a leave request vote
+      finalized = await finalizeLeaveApproval(inv.approvalForInvitationId);
+    } else {
+      // This is a join invitation vote
+      finalized = await finalizeTeamApproval(inv.approvalForInvitationId);
+    }
+    
     if (finalized.status === "rejected") {
-      res.json({ message: "Vote recorded. Invitation rejected by team." });
+      res.json({ message: "Vote recorded. Request rejected by team." });
       return;
     }
     res.json({ message: "Vote recorded" });
