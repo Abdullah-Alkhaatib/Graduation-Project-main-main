@@ -9,17 +9,28 @@ import { createNotification, logActivity } from "../lib/notify";
  */
 export async function formatRequest(req_: typeof supervisorRequestsTable.$inferSelect) {
   const [team] = await db.select().from(teamsTable).where(eq(teamsTable.id, req_.teamId));
+  if (!team) {
+    console.error(`[formatRequest] Team not found for request ${req_.id}: teamId=${req_.teamId}`);
+    throw new Error(`Team not found for supervisor request ${req_.id}`);
+  }
+
   const [supervisor] = await db
     .select({ id: usersTable.id, name: usersTable.name, email: usersTable.email, role: usersTable.role, createdAt: usersTable.createdAt })
     .from(usersTable)
     .where(eq(usersTable.id, req_.supervisorId));
+  if (!supervisor) {
+    console.error(`[formatRequest] Supervisor not found for request ${req_.id}: supervisorId=${req_.supervisorId}`);
+    throw new Error(`Supervisor not found for supervisor request ${req_.id}`);
+  }
+
   const [leader] = await db
     .select({ id: usersTable.id, name: usersTable.name, email: usersTable.email, role: usersTable.role, createdAt: usersTable.createdAt })
     .from(usersTable)
     .where(eq(usersTable.id, team.leaderId));
+  
   const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(teamMembersTable).where(eq(teamMembersTable.teamId, team.id));
 
-  return { ...req_, team: { ...team, leader, supervisor: null, memberCount: countResult?.count ?? 0 }, supervisor };
+  return { ...req_, team: { ...team, leader: leader || null, supervisor: null, memberCount: countResult?.count ?? 0 }, supervisor };
 }
 
 // ============ Queries ============
@@ -28,19 +39,27 @@ export async function formatRequest(req_: typeof supervisorRequestsTable.$inferS
  * Get supervisor requests (role-based)
  */
 export async function getSupervisorRequests(userId: number, userRole: string): Promise<any[]> {
+  console.log(`[getSupervisorRequests] Fetching requests for user ${userId} with role ${userRole}`);
+  
   let requests: (typeof supervisorRequestsTable.$inferSelect)[];
 
   if (userRole === "supervisor") {
+    console.log(`[getSupervisorRequests] Querying supervisor requests for supervisor ID: ${userId}`);
     requests = await db.select().from(supervisorRequestsTable).where(eq(supervisorRequestsTable.supervisorId, userId));
+    console.log(`[getSupervisorRequests] Found ${requests.length} supervisor requests`);
   } else if (userRole === "student") {
     const [membership] = await db.select().from(teamMembersTable).where(eq(teamMembersTable.userId, userId));
     if (!membership) {
+      console.log(`[getSupervisorRequests] Student ${userId} has no team membership`);
       return [];
     }
     requests = await db.select().from(supervisorRequestsTable).where(eq(supervisorRequestsTable.teamId, membership.teamId));
+    console.log(`[getSupervisorRequests] Found ${requests.length} supervisor requests for team ${membership.teamId}`);
   } else {
     // coordinator view - all requests
+    console.log(`[getSupervisorRequests] Coordinator view - fetching all requests`);
     requests = await db.select().from(supervisorRequestsTable);
+    console.log(`[getSupervisorRequests] Found ${requests.length} total supervisor requests`);
   }
 
   return Promise.all(requests.map(formatRequest));
@@ -199,17 +218,24 @@ export async function clearTeamSupervisor(teamId: number): Promise<{ team?: any;
  * Coordinator assigns supervisor to team directly
  */
 export async function coordinatorAssignSupervisor(teamId: number, supervisorId: number, coordinatorId: number): Promise<{ message: string }> {
+  console.log(`[coordinatorAssignSupervisor] Starting assignment: teamId=${teamId}, supervisorId=${supervisorId}, coordinatorId=${coordinatorId}`);
+  
   const [team] = await db.select().from(teamsTable).where(eq(teamsTable.id, teamId));
   if (!team) {
+    console.error(`[coordinatorAssignSupervisor] Team not found: ${teamId}`);
     throw new Error("Team not found");
   }
+  console.log(`[coordinatorAssignSupervisor] Team found: ${team.name}`);
 
   const [supervisor] = await db.select().from(usersTable).where(and(eq(usersTable.id, supervisorId), eq(usersTable.role, "supervisor")));
   if (!supervisor) {
+    console.error(`[coordinatorAssignSupervisor] Supervisor not found: ${supervisorId}`);
     throw new Error("Supervisor not found");
   }
+  console.log(`[coordinatorAssignSupervisor] Supervisor found: ${supervisor.name}`);
 
   if (team.supervisorId) {
+    console.error(`[coordinatorAssignSupervisor] Team already has supervisor: ${team.supervisorId}`);
     throw new Error("Team already has a supervisor");
   }
 
@@ -218,6 +244,7 @@ export async function coordinatorAssignSupervisor(teamId: number, supervisorId: 
     .from(supervisorRequestsTable)
     .where(and(eq(supervisorRequestsTable.teamId, teamId), eq(supervisorRequestsTable.status, "pending")));
   if (existingPending) {
+    console.error(`[coordinatorAssignSupervisor] Pending request already exists for team ${teamId}`);
     throw new Error("This team already has a pending supervisor request");
   }
 
@@ -231,8 +258,13 @@ export async function coordinatorAssignSupervisor(teamId: number, supervisorId: 
     })
     .returning();
 
+  console.log(`[coordinatorAssignSupervisor] Created supervisor request: ${request.id} for supervisor ${supervisorId}`);
+
   await createNotification(supervisorId, "supervision_request", `Coordinator requested you to supervise team "${team.name}". Please accept or reject.`, request.id, "supervisor_request");
+  console.log(`[coordinatorAssignSupervisor] Notification sent to supervisor ${supervisorId}`);
+  
   await logActivity("supervisor_request_sent_by_coordinator", `Coordinator sent supervision request to ${supervisor.name} for team "${team.name}"`, coordinatorId, teamId);
+  console.log(`[coordinatorAssignSupervisor] Activity logged`);
 
   return { message: "Supervisor request sent successfully" };
 }
