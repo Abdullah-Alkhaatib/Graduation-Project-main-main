@@ -74,6 +74,7 @@ export default function TeamDetail() {
   const isLeader = members?.some(m => m.userId === user?.id && m.role === 'leader');
   const isCurrentSupervisor = user?.role === "supervisor" && team?.supervisor?.id === user?.id;
   const canManageSupervisor = user?.role === "coordinator";
+  const canRemoveMembers = isLeader || user?.role === "coordinator";
   const hasSupervisor = Boolean(team?.supervisor?.id);
 
   const handleInvite = async () => {
@@ -510,33 +511,35 @@ export default function TeamDetail() {
                         <Badge variant={member.role === 'leader' ? "default" : "secondary"} className="capitalize">
                           {member.role}
                         </Badge>
-                        {isLeader && member.userId !== user?.id && (
+                        {canRemoveMembers && member.userId !== user?.id && (
                           <div className="flex items-center gap-2">
-                            <AlertDialog open={transferTargetId === member.userId} onOpenChange={(open) => setTransferTargetId(open ? member.userId : null)}>
-                              <AlertDialogTrigger asChild>
-                                <Button size="sm" variant="outline" className="gap-2 cursor-pointer transition-colors hover:bg-muted/80">
-                                  Make Leader
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Transfer leadership?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    You are about to make <strong>{member.user.name}</strong> the new leader of <strong>{team.name}</strong>.
-                                    You will remain a team member after the transfer.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel className="cursor-pointer">Cancel</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    className="cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90"
-                                    onClick={() => handleTransferLeadership(member.userId)}
-                                  >
-                                    Yes, transfer leadership
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
+                            {isLeader && (
+                              <AlertDialog open={transferTargetId === member.userId} onOpenChange={(open) => setTransferTargetId(open ? member.userId : null)}>
+                                <AlertDialogTrigger asChild>
+                                  <Button size="sm" variant="outline" className="gap-2 cursor-pointer transition-colors hover:bg-muted/80">
+                                    Make Leader
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Transfer leadership?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      You are about to make <strong>{member.user.name}</strong> the new leader of <strong>{team.name}</strong>.
+                                      You will remain a team member after the transfer.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel className="cursor-pointer">Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      className="cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90"
+                                      onClick={() => handleTransferLeadership(member.userId)}
+                                    >
+                                      Yes, transfer leadership
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            )}
                             <Button
                               size="sm"
                               variant="destructive"

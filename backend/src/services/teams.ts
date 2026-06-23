@@ -724,14 +724,18 @@ export async function removeTeamMemberFromTeam(
   memberId: number,
   currentLeaderId: number,
   currentLeaderName: string,
+  userRole?: "student" | "supervisor" | "coordinator",
 ): Promise<{ message: string }> {
   const [team] = await db.select().from(teamsTable).where(eq(teamsTable.id, teamId));
   if (!team) {
     throw new Error("Team not found");
   }
 
-  if (team.leaderId !== currentLeaderId) {
-    throw new Error("Only the team leader can remove members");
+  const isLeader = team.leaderId === currentLeaderId;
+  const isCoordinator = userRole === "coordinator";
+
+  if (!isLeader && !isCoordinator) {
+    throw new Error("Only the team leader or coordinator can remove members");
   }
 
   const [membership] = await db.select().from(teamMembersTable).where(and(eq(teamMembersTable.teamId, teamId), eq(teamMembersTable.userId, memberId)));

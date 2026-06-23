@@ -263,7 +263,7 @@ router.post("/teams/:id/members/:memberId/remove", requireAuth, async (req, res)
   }
 
   try {
-    const result = await removeTeamMemberFromTeam(teamId, memberId, req.user!.id, req.user!.name || "Leader");
+    const result = await removeTeamMemberFromTeam(teamId, memberId, req.user!.id, req.user!.name || "Leader", req.user!.role);
     res.json(result);
   } catch (error) {
     handleServiceError(res, error);
