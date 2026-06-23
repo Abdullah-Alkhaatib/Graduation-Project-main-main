@@ -11,6 +11,8 @@ export interface HealthStatus {
 
 export interface MessageResponse {
   message: string;
+  requestId?: number;
+  isPending?: boolean;
 }
 
 export type UserRole = (typeof UserRole)[keyof typeof UserRole];

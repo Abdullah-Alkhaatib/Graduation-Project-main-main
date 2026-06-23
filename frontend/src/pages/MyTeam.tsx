@@ -127,13 +127,21 @@ export default function MyTeam() {
   const handleLeave = async () => {
     if (!team) return;
     try {
-      await leaveTeam.mutateAsync({ id: team.id });
+      const result = await leaveTeam.mutateAsync({ id: team.id });
       queryClient.removeQueries({ queryKey: getGetMyTeamQueryKey(), exact: false });
       queryClient.invalidateQueries({ queryKey: getGetMyTeamQueryKey() });
-      toast({
-        title: "Team Left",
-        description: "You have left the team.",
-      });
+      
+      if (result.isPending) {
+        toast({
+          title: "Leave Request Pending",
+          description: "Your leave request has been sent. Waiting for team members to approve.",
+        });
+      } else {
+        toast({
+          title: "Team Left",
+          description: "You have left the team.",
+        });
+      }
       // setLocation("/teams");
     } catch (error: any) {
       toast({

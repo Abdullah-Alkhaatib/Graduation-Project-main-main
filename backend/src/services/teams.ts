@@ -632,7 +632,7 @@ export async function deleteAnnouncementById(announcementId: number, userId: num
   await deleteAnnouncement(announcementId);
 }
 
-export async function requestLeaveTeam(teamId: number, userId: number, userName: string): Promise<{ message: string; requestId?: number }> {
+export async function requestLeaveTeam(teamId: number, userId: number, userName: string): Promise<{ message: string; requestId?: number; isPending: boolean }> {
   const [team] = await db.select().from(teamsTable).where(eq(teamsTable.id, teamId));
   if (!team) {
     throw new Error("Team not found");
@@ -692,7 +692,7 @@ export async function requestLeaveTeam(teamId: number, userId: number, userName:
     }
 
     await logActivity("leave_request_sent", `${userName} requested to leave team "${team.name}"`, userId, teamId);
-    return { message: "Leave request sent. Waiting for team approval.", requestId: mainLeaveRequest.id };
+    return { message: "Leave request sent. Waiting for team approval.", requestId: mainLeaveRequest.id, isPending: true };
   }
 
   if (team.leaderId === userId) {
@@ -716,7 +716,7 @@ export async function requestLeaveTeam(teamId: number, userId: number, userName:
     await logActivity("team_deleted", `Team "${team.name}" deleted because no members left`, userId, teamId);
   }
 
-  return { message: "Left team successfully" };
+  return { message: "Left team successfully", isPending: false };
 }
 
 export async function removeTeamMemberFromTeam(

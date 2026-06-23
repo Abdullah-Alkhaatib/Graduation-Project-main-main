@@ -63,9 +63,13 @@ export default function Invitations() {
 
       const joinRequest = isJoinRequestForLeader(invitation);
       const approvalVote = isApprovalVoteRequest(invitation);
+      const isLeaveVote = approvalVote && invitation.approvalTargetUserId === invitation.invitedByUserId;
+      
       toast({
-        title: approvalVote ? "Vote Submitted" : joinRequest ? "Join Request Accepted" : "Invitation Accepted",
-        description: approvalVote
+        title: isLeaveVote ? "Leave Vote Submitted" : approvalVote ? "Vote Submitted" : joinRequest ? "Join Request Accepted" : "Invitation Accepted",
+        description: isLeaveVote
+          ? "Your approval for the leave request was recorded."
+          : approvalVote
           ? "Your approval was recorded for this invitation."
           : joinRequest
             ? "The student was added to your team."
@@ -90,9 +94,13 @@ export default function Invitations() {
 
       const joinRequest = isJoinRequestForLeader(invitation);
       const approvalVote = isApprovalVoteRequest(invitation);
+      const isLeaveVote = approvalVote && invitation.approvalTargetUserId === invitation.invitedByUserId;
+      
       toast({
-        title: approvalVote ? "Vote Submitted" : joinRequest ? "Join Request Rejected" : "Invitation Rejected",
-        description: approvalVote
+        title: isLeaveVote ? "Leave Vote Rejected" : approvalVote ? "Vote Submitted" : joinRequest ? "Join Request Rejected" : "Invitation Rejected",
+        description: isLeaveVote
+          ? "Your rejection of the leave request was recorded."
+          : approvalVote
           ? "Your rejection was recorded for this invitation."
           : joinRequest
             ? "The join request was rejected."
@@ -177,7 +185,11 @@ export default function Invitations() {
                           <>
                             <div className="flex items-center justify-between mb-2">
                               <Badge variant="outline" className="bg-blue-50 text-blue-700">
-                                {approvalVote ? "Team Vote Request" : joinRequest ? "Join Request" : "Team Invitation"}
+                                {approvalVote 
+                                  ? (invitation.approvalTargetUserId === invitation.invitedByUserId 
+                                      ? "Leave Request Vote" 
+                                      : "Team Vote Request")
+                                  : joinRequest ? "Join Request" : "Team Invitation"}
                               </Badge>
                               <span className="text-xs text-muted-foreground flex items-center gap-1">
                                 <Clock className="h-3 w-3" />
@@ -201,7 +213,10 @@ export default function Invitations() {
                             </div>
                             {approvalVote && (
                               <p className="text-sm text-muted-foreground mt-2">
-                                Vote to add <span className="font-medium text-foreground">{invitation.approvalTargetUser?.name || "this student"}</span> to your team.
+                                {invitation.approvalTargetUserId === invitation.invitedByUserId
+                                  ? `Vote to approve ${invitation.approvalTargetUser?.name || "this student"}'s request to leave the team.`
+                                  : `Vote to add ${invitation.approvalTargetUser?.name || "this student"} to your team.`
+                                }
                               </p>
                             )}
                           </>

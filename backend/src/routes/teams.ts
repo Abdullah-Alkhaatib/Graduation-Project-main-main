@@ -248,7 +248,7 @@ router.post("/teams/:id/leave", requireAuth, async (req, res): Promise<void> => 
 
   try {
     const result = await requestLeaveTeam(teamId, req.user!.id, req.user!.name || "Student");
-    res.status(result.requestId ? 202 : 200).json(result);
+    res.status(result.isPending ? 202 : 200).json(result);
   } catch (error) {
     handleServiceError(res, error);
   }
